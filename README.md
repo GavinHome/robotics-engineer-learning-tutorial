@@ -1,150 +1,152 @@
-# Robotics Engineer Learning Tutorial
+# 机器人工程师学习教程
 
-A hands-on, month-by-month robotics engineering curriculum. Starting from zero electronics experience, progressing to ROS2, control theory, and job-ready robotics skills in 6 months.
+一套从零电子基础起步，6 个月掌握 ROS2、控制论和求职级机器人技能的实践课程。
 
-## What's Inside
+## 项目结构
 
-| Folder | Description |
-|--------|-------------|
-| [`教程/`](./%E6%95%99%E7%A8%8B/) | Original 1–6 month article-style learning plans |
-| [`进度/`](./%E8%BF%9B%E5%BA%A6/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
+| 文件夹 | 说明 |
+|--------|------|
+| [`教程/`](./%E6%95%99%E7%A8%8B/) | 1–6 月文章式原始学习计划 |
+| [`进度/`](./%E8%BF%9B%E5%BA%A6/) | 第 1 月 30 天逐日实践指南 + 专业术语中英文对照表 |
+| [`day-01/`](./day-01/) | 第 1 天学习内容（仿真截图 + 笔记） |
 
-This repo doubles as a public learning journal. Every experiment, circuit, and robot project is documented with photos, schematics, code, and a dedicated "What Went Wrong & How I Fixed It" section.
-
----
-
-## 6-Month Roadmap
-
-| Month | Focus |
-|-------|-------|
-| 1 | Electronics fundamentals, breadboarding, soldering, ESP32-S3, sensors, DC motors |
-| 2 | Microcontrollers, motor drivers, servo/stepper control, IMU, ultrasonic ranging |
-| 3 | Mechanical design, CAD, 3D printing, laser cutting, chassis fabrication |
-| 4 | ROS2 simulation, Gazebo, Nav2, enterprise dev practices |
-| 5 | Control theory, PID tuning, Kalman filters, math foundations |
-| 6 | LeRobot, RL for robotics, specialization tracks, portfolio & job hunt |
+本仓库同时作为公开学习日志。每个实验、电路和机器人项目都会记录照片、原理图、代码，以及专门的「出了什么问题 & 如何修复」部分。
 
 ---
 
-## Month 1 at a Glance
+## 6 个月学习路线
 
-- **Week 1** — Circuit theory & simulation (Falstad, Tinkercad, All About Circuits)
-- **Week 2** — ESP32-S3 GPIO, PWM, ADC, serial communication
-- **Week 3** — Soldering, HC-SR04 ultrasonic, MPU-6050 IMU, DC motors + TB6612 driver
-- **Week 4** — Python scripts, Git/GitHub workflow, Wi-Fi remote control car capstone
-
-Budget: **$0–$90** depending on tier (simulator-only → full ESP32 starter kit).
+| 月份 | 学习重点 |
+|------|----------|
+| 1 | 电子学基础、面包板、焊接、ESP32-S3、传感器、直流电机 |
+| 2 | 单片机进阶、电机驱动、舵机/步进电机控制、IMU、超声波测距 |
+| 3 | 机械设计、CAD、3D 打印、激光切割、底盘制作 |
+| 4 | ROS2 仿真、Gazebo、Nav2、企业级开发实践 |
+| 5 | 控制理论、PID 调参、卡尔曼滤波、数学基础 |
+| 6 | LeRobot、机器人强化学习、专精方向、作品集与求职 |
 
 ---
 
-## Day 1 — Ohm's Law & Voltage Divider
+## 第 1 月概览
 
-### Goal
-Understand voltage, current, and resistance. Build and simulate your first circuits. Verify Ohm's Law with real measurements.
+- **第 1 周** — 电路理论与仿真（Falstad、Tinkercad、All About Circuits）
+- **第 2 周** — ESP32-S3 GPIO、PWM、ADC、串口通信
+- **第 3 周** — 焊接、HC-SR04 超声波、MPU-6050 IMU、直流电机 + TB6612 驱动
+- **第 4 周** — Python 脚本、Git/GitHub 工作流、Wi-Fi 遥控小车综合项目
 
-### Screenshots
-<!-- Replace the placeholder below with your Falstad/Tinkercad screenshots and multimeter readings -->
-- **Falstad screenshot — single resistor (1 kΩ @ 5 V)**
-- **Falstad screenshot — voltage divider (1 kΩ + 2 kΩ)**
-- **Multimeter photo — measuring a real 220 Ω resistor**
+预算：**$0–$90**（仅仿真器 → 完整 ESP32 入门套件）。
 
-### Formulas
+---
 
-**1. Ohm's Law**
+## 第 1 天 — 欧姆定律与分压电路
+
+### 目标
+理解电压、电流和电阻。搭建并仿真你的第一个电路。用实际测量值验证欧姆定律。
+
+### 仿真截图
+- **Falstad 仿真 — 单电阻 (10 kΩ @ 5 V):** [`day-01/1.1 第一个仿真电路.png`](day-01/1.1%20第一个仿真电路.png)
+
+### 计算公式
+
+**1. 欧姆定律**
 ```
 V = I × R
 ```
-- `V` = voltage in volts (V)
-- `I` = current in amperes (A)
-- `R` = resistance in ohms (Ω)
+- `V` = 电压，单位伏特 (V)
+- `I` = 电流，单位安培 (A)
+- `R` = 电阻，单位欧姆 (Ω)
 
-> Example: 5 V across 1 kΩ → I = 5 V / 1000 Ω = **5 mA**
+> 来自我的 Falstad 仿真：5 V 接 10 kΩ → I = 5 V / 10000 Ω = **0.5 mA (500 µA)**
 
-**2. Voltage Divider**
+**2. 分压电路**
 ```
 Vout = Vin × R2 / (R1 + R2)
 ```
-- `R1` = top resistor (closest to Vin)
-- `R2` = bottom resistor (closest to GND)
+- `R1` = 上端电阻（靠近 Vin）
+- `R2` = 下端电阻（靠近 GND）
 
-> Example: Vin = 5 V, R1 = 1 kΩ, R2 = 2 kΩ → Vout = 5 × 2 / 3 = **3.33 V**
+> 示例：Vin = 5 V，R1 = 1 kΩ，R2 = 2 kΩ → Vout = 5 × 2 / 3 = **3.33 V**
 
-**3. Power Dissipation**
+**3. 功率消耗**
 ```
 P = V × I = I² × R = V² / R
 ```
-- `P` = power in watts (W)
-- Most through-hole resistors are rated 1/4 W (0.25 W)
+- `P` = 功率，单位瓦特 (W)
+- 常见直插电阻额定功率为 1/4 W（0.25 W）
 
-> Example: 5 V across 1 kΩ → P = 25 / 1000 = **25 mW** (well within 1/4 W rating)
+> 来自我的 Falstad 仿真：5 V 接 10 kΩ → P = 25 / 10000 = **2.5 mW**（远低于 1/4 W 额定值）
 
-**4. Series / Parallel Resistance**
+**4. 串联 / 并联电阻**
 ```
-Series:     R_eq = R1 + R2 + ...
-Parallel:   1 / R_eq = 1/R1 + 1/R2  →  R_eq = (R1 × R2) / (R1 + R2)
-```
-
-**5. Kirchhoff's Current Law (KCL)**
-```
-Σ I_in = Σ I_out   at any node
+串联：     R_eq = R1 + R2 + ...
+并联：   1 / R_eq = 1/R1 + 1/R2  →  R_eq = (R1 × R2) / (R1 + R2)
 ```
 
-**6. RC Time Constant**
+**5. 基尔霍夫电流定律 (KCL)**
+```
+Σ I_in = Σ I_out   任意节点
+```
+
+**6. RC 时间常数**
 ```
 τ = R × C
 ```
-- After ~5τ, a capacitor is >99% charged/discharged
-- `R` in ohms, `C` in farads → `τ` in seconds
+- 约经过 5τ，电容充放电完成 >99%
+- `R` 单位为欧姆，`C` 单位为法拉 → `τ` 单位为秒
 
-### Quick Reference
+### 快速参考
 
-| Symbol | Meaning | Unit |
-|--------|---------|------|
-| `V` | Voltage | Volt (V) |
-| `I` | Current | Ampere (A) |
-| `R` | Resistance | Ohm (Ω) |
-| `P` | Power | Watt (W) |
-| `C` | Capacitance | Farad (F) |
-| `τ` | Time constant | Second (s) |
+| 符号 | 含义 | 单位 |
+|------|------|------|
+| `V` | 电压 | 伏特 (V) |
+| `I` | 电流 | 安培 (A) |
+| `R` | 电阻 | 欧姆 (Ω) |
+| `P` | 功率 | 瓦特 (W) |
+| `C` | 电容 | 法拉 (F) |
+| `τ` | 时间常数 | 秒 (s) |
 
-### Files in This Repo
+### 本仓库文件结构
 
 ```
 robotics-engineer-learning-tutorial/
-├── README.md                    ← you are here
-├── day-01/                      ← today's work (screenshots + notes)
-└── ...
+├── README.md                    ← 你正在看这里（中文）
+├── README.en.md                 ← English version
+├── 教程/                        ← 原始 1–6 月学习计划
+├── 进度/                        ← 第 1 月 30 天逐日指南 + 术语表
+└── day-01/                      ← 第 1 天学习内容（截图 + 笔记）
 ```
 
 ---
 
-## Learning Journal Policy
+## 学习日志规范
 
-Every day's work lives in a dated folder and includes:
+每天的学习内容放在对应日期文件夹中，包括：
 
-1. **What I built** (photos, GIFs, schematics)
-2. **Code** (well-commented, compiles/runs without errors)
-3. **Test results** (measured values, oscilloscope captures, serial logs)
-4. **What went wrong & how I fixed it** — the most important section
-5. **References** (datasheets, tutorial links, forum threads that helped)
-
----
-
-## Hardware
-
-See [`教程/第1月-电子学与工作台.md`](./%E6%95%99%E7%A8%8B/%E7%AC%AC1%E6%9C%88-%E7%94%B5%E5%AD%90%E5%AD%A6%E4%B8%8E%E5%B7%A5%E4%BD%9C%E5%8F%B0.md) and [`进度/第1月-30天逐日指南.md`](./%E8%BF%9B%E5%BA%A6/%E7%AC%AC1%E6%9C%88-30%E5%A4%A9%E9%80%90%E6%97%A5%E6%8C%87%E5%8D%97.md) for full BOM and budget tiers.
+1. **我做了什么**（照片、GIF、原理图）
+2. **代码**（注释清晰、编译/运行无误）
+3. **测试结果**（测量值、示波器截图、串口日志）
+4. **出了什么问题 & 如何修复** — 最重要的部分
+5. **参考资料**（数据手册、教程链接、帮助过你的论坛帖子）
 
 ---
 
-## Resources
+## 硬件清单
 
-- Falstad Circuit Simulator: https://www.falstad.com/circuit/
-- Tinkercad Circuits: https://www.tinkercad.com/circuits
-- All About Circuits Textbook: https://www.allaboutcircuits.com/textbook/
-- ESP32-S3 Docs: https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/
+完整 BOM（物料清单）和预算分级详见：
+- [`教程/第1月-电子学与工作台.md`](./%E6%95%99%E7%A8%8B/%E7%AC%AC1%E6%9C%88-%E7%94%B5%E5%AD%90%E5%AD%A6%E4%B8%8E%E5%B7%A5%E4%BD%9C%E5%8F%B0.md)
+- [`进度/第1月-30天逐日指南.md`](./%E8%BF%9B%E5%BA%A6/%E7%AC%AC1%E6%9C%88-30%E5%A4%A9%E9%80%90%E6%97%A5%E6%8C%87%E5%8D%97.md)
 
 ---
 
-## License
+## 推荐资源
 
-This learning journal is personal and for educational purposes. Third-party resources belong to their respective owners.
+- Falstad 电路仿真器：https://www.falstad.com/circuit/
+- Tinkercad Circuits：https://www.tinkercad.com/circuits
+- All About Circuits 教材：https://www.allaboutcircuits.com/textbook/
+- ESP32-S3 官方文档：https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/
+
+---
+
+## 开源协议
+
+本学习日志为个人学习用途。第三方资源版权归原作者所有。
