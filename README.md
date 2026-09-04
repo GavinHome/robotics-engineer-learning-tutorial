@@ -125,6 +125,8 @@ P = V × I = I² × R = V² / R
 
 - **Falstad 仿真 — 串联 (1 kΩ + 2 kΩ @ 5 V):** [`day-02/1kΩ-串联-2kΩ.png`](day-02/1kΩ-串联-2kΩ.png)
 - **Falstad 仿真 — 并联 (1 kΩ // 1 kΩ @ 5 V):** [`day-02/1kΩ-并联-1kΩ.png`](day-02/1kΩ-并联-1kΩ.png)
+- **Tinkercad — 串联电路（万用表并联测电压 3.33V，串联测电流 1.67mA）:** [`day-02/电路-串联-tinkercad.png`](day-02/电路-串联-tinkercad.png)
+- **Tinkercad — 并联电路（电压 5V，电流 10mA，等效电阻 500Ω）:** [`day-02/电路-并联-tinkercad.png`](day-02/电路-并联-tinkercad.png)
 
 ### Falstad 电路文件
 
