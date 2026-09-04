@@ -47,6 +47,7 @@
 - **Falstad 仿真 — 单电阻 (1 kΩ @ 5 V):** [`day-01/1kΩ.png`](day-01/1kΩ.png)
 - **Falstad 仿真 — 单电阻 (220 Ω @ 5 V):** [`day-01/220Ω.png`](day-01/220Ω.png)
 - **Falstad 仿真 — 单电阻 (10 kΩ @ 5 V):** [`day-01/10kΩ.png`](day-01/10kΩ.png)
+- **Tinkercad 注册成功:** [`day-01/tinkercad.png`](day-01/tinkercad.png)
 
 ### 实测数据对比
 
