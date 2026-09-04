@@ -49,6 +49,13 @@
 - **Falstad 仿真 — 单电阻 (10 kΩ @ 5 V):** [`day-01/10kΩ.png`](day-01/10kΩ.png)
 - **Tinkercad 注册成功:** [`day-01/tinkercad.png`](day-01/tinkercad.png)
 
+### Falstad 电路文件
+
+- **可复用电路模板：** [`day-01/series-resistor-circuit.txt`](day-01/series-resistor-circuit.txt)
+  - 从 Falstad 导出的 1 kΩ 串联电路
+  - 导入方法：打开 https://www.falstad.com/circuit/ → File → Import → 粘贴文件内容
+  - 修改电阻值：找到 `<r ... r="1000"/>`，将 `1000` 改为目标电阻值（单位 Ω），即可快速重现不同电阻的仿真
+
 ### 实测数据对比
 
 | 电阻值 | 电流 (I) | 功率 (P) | 计算验证 |
