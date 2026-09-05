@@ -189,16 +189,8 @@ R_eq = (R1 × R2) / (R1 + R2)
 
 ### 仿真截图
 
-- **Falstad 仿真 — KVL（串联分压 1 kΩ + 2 kΩ @ 5 V）:** [`day-03/电路A-KVL.png`](day-03/电路A-KVL.png)
-- **Falstad 仿真 — KCL（并联分流 1 kΩ // 1 kΩ @ 5 V）:** [`day-03/电路B-KCL.png`](day-03/电路B-KCL.png)
-
-### Falstad 电路文件
-
-- **KVL 串联模板：** [`day-03/电路A-KVL.txt`](day-03/电路A-KVL.txt)
-  - 1 kΩ + 2 kΩ 串联，接 5V 电源，验证 KVL
-- **KCL 并联模板：** [`day-03/电路B-KCL.txt`](day-03/电路B-KCL.txt)
-  - 两个 1 kΩ 并联，接 5V 电源，验证 KCL
-  - 导入方法：打开 https://www.falstad.com/circuit/ → File → Import → 粘贴文件内容
+- **Tinkercad 仿真 — KVL（串联分压 1 kΩ + 2 kΩ @ 5 V）:** [`day-03/电路A-KVL.png`](day-03/电路A-KVL.png)
+- **Tinkercad 仿真 — KCL（并联分流 1 kΩ // 1 kΩ @ 5 V）:** [`day-03/电路B-KCL.png`](day-03/电路B-KCL.png)
 
 ### 实测数据
 
