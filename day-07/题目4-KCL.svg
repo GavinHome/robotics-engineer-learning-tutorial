@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 300" width="500" height="300">
+  <!-- Background -->
+  <rect width="500" height="300" fill="#1e1e1e"/>
+
+  <!-- Central node (black dot) -->
+  <circle cx="250" cy="150" r="6" fill="#fff"/>
+
+  <!-- Branch 1 (top-left) -->
+  <line x1="150" y1="80" x2="250" y2="150" stroke="#ff4444" stroke-width="2"/>
+  <line x1="80" y1="80" x2="150" y2="80" stroke="#ff4444" stroke-width="2"/>
+  <!-- Current arrow pointing toward node -->
+  <line x1="130" y1="92" x2="142" y2="104" stroke="#fff" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="105" y="88" text-anchor="middle" fill="#aaa" font-family="monospace" font-size="12">2mA</text>
+  <text x="105" y="102" text-anchor="middle" fill="#aaa" font-family="monospace" font-size="10">流入</text>
+
+  <!-- Branch 2 (top-right) -->
+  <line x1="250" y1="150" x2="350" y2="80" stroke="#888" stroke-width="2"/>
+  <line x1="350" y1="80" x2="420" y2="80" stroke="#888" stroke-width="2"/>
+  <!-- Current arrow pointing toward node -->
+  <line x1="358" y1="92" x2="346" y2="104" stroke="#fff" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="385" y="88" text-anchor="middle" fill="#aaa" font-family="monospace" font-size="12">3mA</text>
+  <text x="385" y="102" text-anchor="middle" fill="#aaa" font-family="monospace" font-size="10">流入</text>
+
+  <!-- Branch 3 (bottom) -->
+  <line x1="250" y1="150" x2="250" y2="240" stroke="#ff4444" stroke-width="2"/>
+  <line x1="250" y1="240" x2="250" y2="260" stroke="#ff4444" stroke-width="2"/>
+  <!-- Current arrow pointing away from node (downward) -->
+  <line x1="262" y1="180" x2="262" y2="168" stroke="#fff" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="280" y="200" text-anchor="start" fill="#aaa" font-family="monospace" font-size="12">? mA</text>
+  <text x="280" y="214" text-anchor="start" fill="#aaa" font-family="monospace" font-size="10">流出</text>
+
+  <!-- KCL equation -->
+  <text x="250" y="290" text-anchor="middle" fill="#ffcc00" font-family="monospace" font-size="14">KCL: 流入 = 流出 → 2 + 3 = ?</text>
+
+  <!-- Legend -->
+  <text x="40" y="30" text-anchor="middle" fill="#aaa" font-family="monospace" font-size="10">图例</text>
+  <line x1="30" y1="42" x2="50" y2="42" stroke="#ff4444" stroke-width="2"/>
+  <text x="55" y="46" fill="#aaa" font-family="monospace" font-size="10">流入</text>
+  <line x1="30" y1="58" x2="50" y2="58" stroke="#888" stroke-width="2"/>
+  <text x="55" y="62" fill="#aaa" font-family="monospace" font-size="10">流出</text>
+
+  <!-- Arrow marker definition -->
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#fff"/>
+    </marker>
+  </defs>
+</svg>
