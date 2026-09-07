@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" width="720" height="300">
+  <!-- 背景 -->
+  <rect width="720" height="300" fill="#1e1e1e"/>
+
+  <!-- ============ 面板 ①：空载分压 ============ -->
+  <text x="190" y="28" text-anchor="middle" fill="#fff" font-family="monospace" font-size="13">① 空载：Vout = ?</text>
+
+  <!-- 电池 (5V) -->
+  <line x1="100" y1="60" x2="100" y2="85" stroke="#ff4444" stroke-width="2"/>
+  <line x1="85" y1="85" x2="115" y2="85" stroke="#ff4444" stroke-width="2"/>
+  <line x1="92" y1="100" x2="108" y2="100" stroke="#888" stroke-width="4"/>
+  <line x1="100" y1="100" x2="100" y2="250" stroke="#888" stroke-width="2"/>
+  <text x="100" y="50" text-anchor="middle" fill="#fff" font-family="monospace" font-size="14">5V</text>
+
+  <!-- 顶部导线 → 分压列 -->
+  <line x1="100" y1="60" x2="200" y2="60" stroke="#ff4444" stroke-width="2"/>
+  <line x1="140" y1="60" x2="158" y2="60" stroke="#fff" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="149" y="52" text-anchor="middle" fill="#aaa" font-family="monospace" font-size="10">I</text>
+
+  <!-- R1 (1kΩ) 竖直 -->
+  <line x1="200" y1="60" x2="200" y2="90" stroke="#ff4444" stroke-width="2"/>
+  <rect x="188" y="90" width="24" height="60" fill="none" stroke="#ffcc00" stroke-width="2"/>
+  <text x="222" y="125" text-anchor="start" fill="#ffcc00" font-family="monospace" font-size="11">1kΩ</text>
+  <line x1="200" y1="150" x2="200" y2="170" stroke="#ff4444" stroke-width="2"/>
+  <text x="208" y="163" text-anchor="start" fill="#aaa" font-family="monospace" font-size="10">A</text>
+
+  <!-- R2 (2kΩ) 竖直 -->
+  <rect x="188" y="170" width="24" height="60" fill="none" stroke="#ffcc00" stroke-width="2"/>
+  <text x="222" y="205" text-anchor="start" fill="#ffcc00" font-family="monospace" font-size="11">2kΩ</text>
+  <line x1="200" y1="230" x2="200" y2="250" stroke="#888" stroke-width="2"/>
+
+  <!-- 底边导线 → 接地 -->
+  <line x1="100" y1="250" x2="280" y2="250" stroke="#888" stroke-width="2"/>
+  <line x1="280" y1="250" x2="280" y2="258" stroke="#888" stroke-width="2"/>
+  <line x1="268" y1="258" x2="292" y2="258" stroke="#888" stroke-width="2"/>
+  <line x1="274" y1="264" x2="286" y2="264" stroke="#888" stroke-width="2"/>
+  <line x1="278" y1="270" x2="282" y2="270" stroke="#888" stroke-width="2"/>
+
+  <!-- Vout 标注（双向箭头，指向 R2 两端电位） -->
+  <line x1="172" y1="175" x2="172" y2="225" stroke="#fff" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="165" y1="225" x2="165" y2="175" stroke="#fff" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="155" y="203" text-anchor="end" fill="#ff6666" font-family="monospace" font-size="11">Vout</text>
+
+  <!-- ============ 面板 ②：接 10kΩ 负载 ============ -->
+  <text x="520" y="28" text-anchor="middle" fill="#fff" font-family="monospace" font-size="13">② 接 10kΩ 负载后</text>
+
+  <!-- 电池 (5V) -->
+  <line x1="420" y1="60" x2="420" y2="85" stroke="#ff4444" stroke-width="2"/>
+  <line x1="405" y1="85" x2="435" y2="85" stroke="#ff4444" stroke-width="2"/>
+  <line x1="412" y1="100" x2="428" y2="100" stroke="#888" stroke-width="4"/>
+  <line x1="420" y1="100" x2="420" y2="250" stroke="#888" stroke-width="2"/>
+  <text x="420" y="50" text-anchor="middle" fill="#fff" font-family="monospace" font-size="14">5V</text>
+
+  <!-- 顶部导线 → 分压列 -->
+  <line x1="420" y1="60" x2="500" y2="60" stroke="#ff4444" stroke-width="2"/>
+  <line x1="455" y1="60" x2="473" y2="60" stroke="#fff" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="464" y="52" text-anchor="middle" fill="#aaa" font-family="monospace" font-size="10">I</text>
+
+  <!-- R1 (1kΩ) 竖直 -->
+  <line x1="500" y1="60" x2="500" y2="90" stroke="#ff4444" stroke-width="2"/>
+  <rect x="488" y="90" width="24" height="60" fill="none" stroke="#ffcc00" stroke-width="2"/>
+  <text x="522" y="125" text-anchor="start" fill="#ffcc00" font-family="monospace" font-size="11">1kΩ</text>
+  <line x1="500" y1="150" x2="500" y2="170" stroke="#ff4444" stroke-width="2"/>
+
+  <!-- 节点 A（R1 下端 / R2 上端 / 负载支路 三线交汇） -->
+  <circle cx="500" cy="170" r="3" fill="#ff4444"/>
+  <text x="508" y="163" text-anchor="start" fill="#aaa" font-family="monospace" font-size="10">A</text>
+
+  <!-- R2 (2kΩ) 竖直（顶部与 R_L 对齐） -->
+  <line x1="500" y1="170" x2="500" y2="180" stroke="#ff4444" stroke-width="2"/>
+  <rect x="488" y="180" width="24" height="60" fill="none" stroke="#ffcc00" stroke-width="2"/>
+  <text x="522" y="215" text-anchor="start" fill="#ffcc00" font-family="monospace" font-size="11">2kΩ</text>
+  <line x1="500" y1="240" x2="500" y2="250" stroke="#888" stroke-width="2"/>
+
+  <!-- 负载支路：节点 A → R_L (10kΩ) → 底边（顶部与 R2 对齐） -->
+  <line x1="500" y1="170" x2="580" y2="170" stroke="#ff4444" stroke-width="2"/>
+  <line x1="580" y1="170" x2="580" y2="180" stroke="#ff4444" stroke-width="2"/>
+  <rect x="568" y="180" width="24" height="60" fill="none" stroke="#ffcc00" stroke-width="2"/>
+  <text x="600" y="215" text-anchor="start" fill="#ffcc00" font-family="monospace" font-size="11">10kΩ</text>
+  <line x1="580" y1="240" x2="580" y2="250" stroke="#888" stroke-width="2"/>
+  <circle cx="580" cy="250" r="3" fill="#888"/>
+
+  <!-- 底边导线 → 接地 -->
+  <line x1="420" y1="250" x2="620" y2="250" stroke="#888" stroke-width="2"/>
+  <line x1="620" y1="250" x2="620" y2="258" stroke="#888" stroke-width="2"/>
+  <line x1="608" y1="258" x2="632" y2="258" stroke="#888" stroke-width="2"/>
+  <line x1="614" y1="264" x2="626" y2="264" stroke="#888" stroke-width="2"/>
+  <line x1="618" y1="270" x2="622" y2="270" stroke="#888" stroke-width="2"/>
+
+  <!-- Vout 标注 -->
+  <line x1="472" y1="185" x2="472" y2="235" stroke="#fff" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="465" y1="235" x2="465" y2="185" stroke="#fff" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="455" y="215" text-anchor="end" fill="#ff6666" font-family="monospace" font-size="11">Vout</text>
+  <text x="620" y="238" text-anchor="middle" fill="#ff6666" font-family="monospace" font-size="11">Vout'</text>
+
+  <!-- 图例（右上角） -->
+  <text x="668" y="18" text-anchor="middle" fill="#aaa" font-family="monospace" font-size="10">图例</text>
+  <line x1="640" y1="30" x2="658" y2="30" stroke="#ff4444" stroke-width="2"/>
+  <text x="662" y="34" fill="#aaa" font-family="monospace" font-size="10">正极 (+)</text>
+  <line x1="640" y1="50" x2="658" y2="50" stroke="#888" stroke-width="2"/>
+  <text x="662" y="54" fill="#aaa" font-family="monospace" font-size="10">负极/地</text>
+
+  <!-- 箭头标记定义 -->
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#fff"/>
+    </marker>
+  </defs>
+</svg>
