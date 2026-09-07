@@ -30,7 +30,7 @@ LED 短脚（阴极） ── 按钮 ── − 轨
 
 ---
 
-## 元器件清单（来自入门套餐）
+## 元器件清单
 
 | 元器件 | 规格 | 数量 | 本实验用量 |
 |--------|------|------|-----------|
@@ -83,57 +83,23 @@ Vtotal = Vresistor + Vled = 3.2V + 1.8V = 5.0V ✓
 
 **现状**：瞬动按钮只能按住亮、松开灭。
 
-**方案**（未实施，待后续学习）：
-- 短期：换自锁型轻触按键（按下去咔哒卡住）
-- 中期：ESP32 代码检测按键翻转（见下方代码片段）
-- 长期：用 PN2222 搭双稳态触发器（Day 10+ 数字电路）
-
----
-
-## 代码片段（ESP32 替代方案）
-
-如果后续用 ESP32 Core S3 替换按钮，实现单键翻转：
-
-```cpp
-const int btnPin = 0;    // 按钮接 GPIO0，另一端接 GND
-const int ledPin = 2;    // LED 串电阻后接 GPIO2
-bool ledOn = false;
-bool lastBtn = HIGH;
-
-void setup() {
-  pinMode(btnPin, INPUT_PULLUP);
-  pinMode(ledPin, OUTPUT);
-  digitalWrite(ledPin, LOW);
-}
-
-void loop() {
-  bool curBtn = digitalRead(btnPin);
-  if (lastBtn == HIGH && curBtn == LOW) {
-    delay(20);
-    if (digitalRead(btnPin) == LOW) {
-      ledOn = !ledOn;
-      digitalWrite(ledPin, ledOn ? HIGH : LOW);
-      while(digitalRead(btnPin) == LOW);
-    }
-  }
-  lastBtn = curBtn;
-}
-```
+**后续方案**：
+- 换自锁型轻触按键（按下去咔哒卡住）
+- 或用 ESP32 代码检测按键翻转
 
 ---
 
 ## 照片
 
-- `点亮LED-直接供电.png` — 面包板整体接线
+- `点亮LED-充电头USB剪线供电.png` — 面包板整体接线
 - `点亮LED-USB供电.png` — MB102 故障参考（备用）
 
 ---
 
-## 下一步
+## TODO
 
 - [ ] 万用表到货后补充全部实测数据
 - [ ] 验证 MB102 故障，联系商家补发
-- [ ] Day 7：复习与答疑
 
 ---
 
