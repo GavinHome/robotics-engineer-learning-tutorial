@@ -109,6 +109,7 @@ Parallel:   1 / R_eq = 1/R1 + 1/R2  →  R_eq = (R1 × R2) / (R1 + R2)
 ```
 robotics-engineer-learning-tutorial/
 ├── README.md                    ← you are here
+├── docs/                        ← ESP32-S3 board reference (schematic + pinout)
 ├── day-01/                      ← today's work (screenshots + notes)
 └── ...
 ```

@@ -44,6 +44,7 @@ robotics-engineer-learning-tutorial/
 ├── README.en.md                 ← English version
 ├── 教程/                        ← 原始 1–6 月学习计划
 ├── 进度/                        ← 第 1 月 30 天逐日指南 + 术语表
+├── docs/                        ← ESP32-S3 开发板原始资料（原理图 + 引脚图）
 ├── day-01/                      ← 第 1 天学习内容（截图 + 笔记）
 ├── day-02/                      ← 第 2 天学习内容（截图 + 笔记）
 ├── day-04/                      ← 第 4 天学习内容（截图 + 笔记）
