@@ -8,7 +8,8 @@
 |--------|------|
 | [`教程/`](./%E6%95%99%E7%A8%8B/) | 1–6 月文章式原始学习计划 |
 | [`进度/`](./%E8%BF%9B%E5%BA%A6/) | 第 1 月 30 天逐日实践指南 + 专业术语中英文对照表 |
-| [`day-01/`](./day-01/) | 第 1 天学习内容（仿真截图 + 笔记） |
+| [`docs/`](./docs/) | ESP32-S3 开发板原始资料（原理图 + 引脚图） |
+| [`day-01/`](./day-01/) … [`day-08/`](./day-08/) | 每日学习内容（截图、电路文件、代码与笔记） |
 
 本仓库同时作为公开学习日志。每个实验、电路和机器人项目都会记录照片、原理图、代码，以及专门的「出了什么问题 & 如何修复」部分。
 
@@ -45,10 +46,9 @@ robotics-engineer-learning-tutorial/
 ├── 教程/                        ← 原始 1–6 月学习计划
 ├── 进度/                        ← 第 1 月 30 天逐日指南 + 术语表
 ├── docs/                        ← ESP32-S3 开发板原始资料（原理图 + 引脚图）
-├── day-01/                      ← 第 1 天学习内容（截图 + 笔记）
-├── day-02/                      ← 第 2 天学习内容（截图 + 笔记）
-├── day-04/                      ← 第 4 天学习内容（截图 + 笔记）
-└── day-05/                      ← 第 5 天学习内容（截图 + 笔记）
+├── 元器件库存清单.md            ← 手头元件与待购清单
+├── day-01/ … day-07/            ← 第 1 周：电路理论与仿真（截图 + 电路文件 + 笔记）
+└── day-08/                      ← 第 8 天：ESP32-S3 开发板认识与开发环境搭建
 ```
 
 ---
@@ -880,6 +880,101 @@ LED 亮条件：Ic > LED_阈值电流（约 1-2mA）
 ### 问题清单
 
 （列出本周学习中不懂的问题，周末集中解决）
+
+---
+
+## 第 8 天 — ESP32-S3 开发板初识与开发环境搭建
+
+### 目标
+
+认识手头的 ESP32-S3-WROOM-1 N16R8 开发板（引脚、启动方式、两个 USB-C 口的分工），搭好 Arduino IDE + esp32 开发包环境，并烧录自检程序验证硬件参数。
+
+> 完整内容（开发板照片、引脚笔记、fqbn 配置表、自检代码与串口输出、踩坑记录）见 [`day-08/README.md`](./day-08/README.md)。
+
+### 开发板
+
+![ESP32-S3 开发板](day-08/ESP32-S3.png)
+
+| 项目 | 参数 |
+| --- | --- |
+| 主控模组 | ESP32-S3-WROOM-1 **N16R8** |
+| Flash | 16 MB |
+| PSRAM | 8 MB（Octal / OPI 接口） |
+| 内核 | Xtensa LX7 双核，最高 240 MHz |
+| 无线 | Wi-Fi 2.4 GHz + Bluetooth 5 (LE) |
+| 引脚 | 44 pin，Type-C 接口 |
+
+**两个 Type-C 口别插错：**
+
+| 接口 | 丝印 | 桥接芯片 | 连到 ESP32-S3 的引脚 | 用途 |
+| --- | --- | --- | --- | --- |
+| U2 | UART | CH343P | GPIO43 (U0TXD) / GPIO44 (U0RXD) | 串口下载 + 串口监视器（本次使用） |
+| U1 | USB | 无（原生） | GPIO19 (D-) / GPIO20 (D+) | USB-OTG / USB-JTAG 调试 |
+
+### 引脚功能要点
+
+| 类别 | 引脚 | 说明 |
+| --- | --- | --- |
+| 数字 GPIO | GPIO 0–21、35–42、45–48 | 共 **33 个**可编程 IO |
+| 串口 UART0 | GPIO43 (TXD) / GPIO44 (RXD) | 接 CH343P，用于烧录与串口打印 |
+| USB-OTG | GPIO19 (D-) / GPIO20 (D+) | 原生 USB，也可做 USB-JTAG 调试 |
+| JTAG 调试 | GPIO39–42 | 默认 JTAG 复用脚 |
+| 电源引脚 | 3V3 / 5V / GND | 5V 可输入 4.5–5.5V；3V3 为板载 LDO 输出（约 1A） |
+| 板载 RGB LED | GPIO48 | WS2812B，单总线可编程彩灯（需额外装库） |
+| 启动 / 复位 | GPIO0 (BOOT) / EN (复位) | 按住 BOOT 上电可进下载模式 |
+| ADC1 | GPIO 1–10 | 模拟输入，**输入电压不得超过 3.3V** |
+| ADC2 | GPIO 11–20 | ⚠️ **Wi-Fi 工作时 ADC2 不可用** |
+| 触摸 Touch | GPIO 1–14 | 电容触摸通道 |
+
+### 开发环境
+
+![Arduino IDE 配置](day-08/ArduinoIDE配置.png)
+
+工具 → 开发板选择 **ESP32S3 Dev Module**（`esp32:esp32:esp32s3`），关键配置：**16MB Flash / OPI PSRAM / QIO / 240 MHz / 921600 / USB CDC On Boot 保持 Disabled**，端口走 CH343P 虚拟串口。
+
+### 自检结果
+
+![代码上传](day-08/代码上传.png)
+
+```cpp
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+  Serial.println("=== ESP32-S3 N16R8 自检 ===");
+  Serial.printf("Flash 大小: %u MB\n", ESP.getFlashChipSize() / (1024 * 1024));
+  Serial.printf("PSRAM 大小: %u MB\n", ESP.getPsramSize() / (1024 * 1024));
+  Serial.printf("PSRAM 空闲: %u bytes\n", ESP.getFreePsram());
+  Serial.printf("CPU 频率: %u MHz\n", ESP.getCpuFreqMHz());
+  Serial.printf("芯片型号: %s\n", ESP.getChipModel());
+  Serial.printf("核心版本: %s\n", ESP.getCoreVersion());
+}
+
+void loop() {
+  delay(2000);
+  Serial.printf("运行中… PSRAM 空闲 %u bytes\n", ESP.getFreePsram());
+}
+```
+
+![执行结果](day-08/执行结果.png)
+
+| 检查项 | 期望值 | 实测值 | 结论 |
+| --- | --- | --- | --- |
+| Flash | 16 MB | 16 MB | ✅ |
+| PSRAM | 8 MB | 8 MB | ✅ |
+| PSRAM 空闲 | 接近 8 MB | 8384788 bytes（≈8.0 MB） | ✅ |
+| CPU 频率 | 240 MHz | 240 MHz | ✅ |
+| 芯片型号 | ESP32-S3 | ESP32-S3 | ✅ |
+| 开发包版本 | — | 3.3.10-cn | ✅ |
+
+### 关键观察
+
+1. **两个 Type-C 口分工完全不同**：只有 U2（CH343P → UART0）走串口下载与监视器；插 U1 需要在 IDE 里打开 `USB CDC On Boot`，否则监视器一片空白
+2. **`USB CDC On Boot` 是本期最关键的配置项**：走 U2 时必须保持 Disabled，否则 `Serial` 会被重定向到原生 USB（GPIO19/20）
+3. **R8 必须选 OPI PSRAM**：八线 PSRAM 若误选 QSPI，PSRAM 检测会失败
+4. **`setup()` 的自检信息只在复位那一次打印**：串口监视器要先打开、再按 RST/EN，否则错过输出（本次实际踩坑，详见 day-08 笔记）
+5. **ADC2 与 Wi-Fi 互斥**：GPIO 11–20 做模拟输入时，Wi-Fi 一旦启用 ADC2 即失效——后面接传感器时要优先用 ADC1
+6. **ADC 输入不得超过 3.3V**：分压后的信号必须在 ADC 量程内，这也是 Day 14 电压表要重点核对的约束
+7. **板载 WS2812B 需额外装库**：GPIO48 控制脚已从原理图确认，但本地 esp32 3.3.10-cn 内置库与 `~/Documents/Arduino/libraries` 中均无 WS2812/NeoPixel 驱动，驱动它需先安装第三方库（如 Adafruit NeoPixel）——该灯尚未实际点亮验证
 
 ---
 
