@@ -49,6 +49,16 @@ Understand voltage, current, and resistance. Build and simulate your first circu
 ### Screenshots
 - **Falstad simulation — single resistor (10 kΩ @ 5 V):** [`day-01/1.1 第一个仿真电路.png`](day-01/1.1 第一个仿真电路.png)
 
+### Measured Data
+
+| Resistance | Current (I) | Power (P) | Verification |
+|------------|-------------|-----------|--------------|
+| 1 kΩ | 5 mA | 25 mW | I = 5V/1kΩ = 5mA, P = V×I = 25mW ✅ |
+| 220 Ω | 22.727 mA | 113.636 mW | I = 5V/220Ω ≈ 22.7mA, P = 25/220 ≈ 113.6mW ✅ |
+| 10 kΩ | 500 µA | 2.5 mW | I = 5V/10kΩ = 0.5mA, P = 25/10000 = 2.5mW ✅ |
+
+> All measured values match Ohm's Law I = V/R and power formula P = V²/R exactly.
+
 ### Formulas
 
 **1. Ohm's Law**
