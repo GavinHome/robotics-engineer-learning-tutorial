@@ -8,8 +8,8 @@
 |--------|------|
 | [`教程/`](./%E6%95%99%E7%A8%8B/) | 1–6 月文章式原始学习计划 |
 | [`进度/`](./%E8%BF%9B%E5%BA%A6/) | 第 1 月 30 天逐日实践指南 + 专业术语中英文对照表 |
-| [`docs/`](./docs/) | ESP32-S3 开发板原始资料（原理图 + 引脚图） |
-| [`day-01/`](./day-01/) … [`day-09/`](./day-09/) | 每日学习内容（截图、电路文件、代码与笔记） |
+| [`docs/`](./docs/) | ESP32-S3 开发板原始资料（原理图 + 引脚图）+ 元器件实物照片 [`元器件.jpg`](./docs/元器件.jpg) |
+| [`day-01/`](./day-01/) … [`day-10/`](./day-10/) | 每日学习内容（截图、电路文件、代码与笔记） |
 
 本仓库同时作为公开学习日志。每个实验、电路和机器人项目都会记录照片、原理图、代码，以及专门的「出了什么问题 & 如何修复」部分。
 
@@ -45,11 +45,12 @@ robotics-engineer-learning-tutorial/
 ├── README.en.md                 ← English version
 ├── 教程/                        ← 原始 1–6 月学习计划
 ├── 进度/                        ← 第 1 月 30 天逐日指南 + 术语表
-├── docs/                        ← ESP32-S3 开发板原始资料（原理图 + 引脚图）
+├── docs/                        ← ESP32-S3 开发板原始资料（原理图 + 引脚图）+ 元器件实物照片（元器件.jpg）
 ├── 元器件库存清单.md            ← 手头元件与待购清单
 ├── day-01/ … day-07/            ← 第 1 周：电路理论与仿真（截图 + 电路文件 + 笔记）
 ├── day-08/                      ← 第 8 天：ESP32-S3 开发板认识与开发环境搭建
-└── day-09/                      ← 第 9 天：第一个程序 Blink（板载 WS2812B 彩灯 + 外接 LED）
+├── day-09/                      ← 第 9 天：第一个程序 Blink（板载 WS2812B 彩灯 + 外接 LED）
+└── day-10/                      ← 第 10 天：PWM 呼吸灯（占空比调亮度 + 双任务并行）
 ```
 
 ---
@@ -1144,6 +1145,135 @@ void loop() {
 
 ---
 
+## 第 10 天 — PWM 呼吸灯
+
+### 目标
+
+Day 9 里 GPIO 只有"全亮 / 全灭"两态（`digitalWrite`）。Day 10 要拿到**第三种状态：任意亮度**——靠 **PWM（脉冲宽度调制）**，引脚高速开 / 关，用"开的时间占比"（占空比）决定平均亮度。占空比从 0 升到满再降回，就是呼吸灯。
+
+ESP32 的 PWM 由 **LEDC 外设**硬件产生：配置一次后硬件持续输出波形，CPU 去发 WS2812B 数据也不会打断它。这是后续 Day 11（按键）、Day 19（电机）非阻塞编程的硬件基础。
+
+> 完整内容（API 断裂处理、代码、视频、周期验证、踩坑记录）见 [`day-10/README.md`](./day-10/README.md)。
+
+**不用重新搭电路——完全复用 Day 9 实验二/三的外接 LED，一根线都不用加。**
+
+两个实验一览：
+
+| 实验 | 代码 | 内容 | 控制脚 |
+| --- | --- | --- | --- |
+| 实验一 | [`day-10/breath_led/breath_led.ino`](./day-10/breath_led/breath_led.ino) | 外接 LED 呼吸（单任务） | GPIO2 |
+| 实验二 | [`day-10/combined_pwm_blink/combined_pwm_blink.ino`](./day-10/combined_pwm_blink/combined_pwm_blink.ino) | 板载彩灯循环 + 外接 LED 呼吸（双任务并行） | GPIO48 + GPIO2 |
+
+### 实验一：外接 LED 呼吸灯
+
+**接线**：沿用 Day 9 —— `GPIO2 → 220Ω 限流电阻 → LED 长脚（阳极）→ LED 短脚（阴极）→ GND`
+
+完整代码：[`day-10/breath_led/breath_led.ino`](./day-10/breath_led/breath_led.ino)
+
+```cpp
+const int LED_PIN = 2;
+const int STEP_MS = 4;      // 每档 4ms：256 档 ≈ 1.02s 单向，一个完整呼吸 ≈ 2s
+
+void setup() {
+  ledcAttach(LED_PIN, 5000, 8);   // 引脚 2, 5kHz, 8 位分辨率 → duty 0~255
+  ledcWrite(LED_PIN, 0);          // 上电从灭开始
+  Serial.begin(115200);
+  Serial.println("ESP32-S3 PWM 呼吸灯 Start");
+}
+
+void loop() {
+  for (int b = 0; b <= 255; b++) { ledcWrite(LED_PIN, b); delay(STEP_MS); }  // 渐亮
+  for (int b = 255; b >= 0; b--) { ledcWrite(LED_PIN, b); delay(STEP_MS); }  // 渐暗
+}
+```
+
+两个 API 的分工：
+
+- `ledcAttach(pin, freq, resolution)` — 把引脚绑到 LEDC，设定 PWM 频率与分辨率。8 位分辨率意味着 duty 取 **0~255**。
+- `ledcWrite(pin, duty)` — 写占空比。**按引脚写**，不按通道写。
+
+### 实验二：彩灯 + 呼吸灯双任务并行
+
+完整代码：[`day-10/combined_pwm_blink/combined_pwm_blink.ino`](./day-10/combined_pwm_blink/combined_pwm_blink.ino)
+
+```cpp
+#include <RgbCycle.h>   // Day 9 的彩灯循环，已抽成可复用库
+
+const int LED_PIN = 2;
+
+unsigned long lastBreath = 0;
+const unsigned long BREATH_INTERVAL = 4;   // 每 4ms 走一档
+const int BREATH_STEP = 1;
+int brightness = 0;
+int breathDir  = 1;
+
+void setup() {
+  RgbCycle::begin();            // 彩灯：初始化
+  RgbCycle::setInterval(800);   // 彩灯：本任务用 800ms/色（一个循环 2.4s）
+  ledcAttach(LED_PIN, 5000, 8); // 外接 LED：绑定 PWM
+  ledcWrite(LED_PIN, 0);
+}
+
+void loop() {
+  unsigned long now = millis();
+
+  RgbCycle::update();   // 任务 A：彩灯，内部自己按 800ms 换色
+
+  if (now - lastBreath >= BREATH_INTERVAL) {   // 任务 B：呼吸灯
+    lastBreath = now;
+    brightness += breathDir * BREATH_STEP;
+    if (brightness >= 255) { brightness = 255; breathDir = -1; }
+    if (brightness <= 0)   { brightness = 0;   breathDir =  1; }
+    ledcWrite(LED_PIN, brightness);
+  }
+}
+```
+
+关键点：**整个 `loop()` 里没有一处 `delay()`**。两路各自用 `millis()` 判断自己的节奏，互不阻塞。
+
+`millis()` 判断必须用相减写法 `now - lastBreath >= BREATH_INTERVAL`（而不是 `now >= lastBreath + INTERVAL`），前者在 `unsigned long` 溢出回绕时依然正确。
+
+### 彩灯循环抽成了 `RgbCycle` 库
+
+Day 10 综合版一开始把 Day 9 的彩灯循环又复制了一遍。照这个趋势每个任务都要再抄一遍，于是抽成 Arduino 库 **`RgbCycle`**，装在 `~/Documents/Arduino/libraries/RgbCycle/`，任意草图一行 `#include <RgbCycle.h>` 即可调用：
+
+```cpp
+void setup() { RgbCycle::begin(); RgbCycle::setInterval(800); }
+void loop()  { RgbCycle::update();   /* 其他任务 */ }
+```
+
+| 接口 | 调用位置 | 作用 |
+| --- | --- | --- |
+| `RgbCycle::begin()` | `setup()` 一次 | 初始化灯珠、清掉复位期间的随机锁存色 |
+| `RgbCycle::setInterval(ms)` | `setup()` 一次 | 设定每色停留时间，不调用则用默认 800ms |
+| `RgbCycle::update()` | `loop()` 每圈 | 内部判断是否到点，到点换下一色，不阻塞 |
+| `RgbCycle::setColor(r, g, b)` | 任意 | 让灯珠停在指定颜色 |
+
+库源码在仓库留了备份：[`day-10/lib/RgbCycle/`](./day-10/lib/RgbCycle/)（两份副本，改动需手动同步）。
+
+### 运行结果（视频实录）
+
+完整视频：[`day-10/LED呼吸灯效果.MOV`](./day-10/LED呼吸灯效果.MOV)（HEVC 1920×1080，29.97 fps，227 帧，7.57 s）。
+
+面包板上为跳线、220Ω 限流电阻与外接 LED，LED 呈连续的"渐亮 → 渐暗"循环，肉眼可见平滑呼吸。
+
+周期验证用**自相关**：峰值在 lag 72 帧 = **2.40 s**（r = 0.627），最强负相关在 **0.83 s**（r = −0.505），与设计的 **2.048 s** 周期同量级。
+
+> **验证方式的局限**：逐帧整幅平均亮度的标准差仅 **1.355**，几乎是平的——相机自动曝光把亮度变化抵消掉了，所以**平均亮度不能用来判断呼吸节奏**（同 Day 9 的坑）。改用自相关虽能看出 ≈2 秒周期，但逐像素相关中 |r| > 0.6 的像素仅占 0.149%，信号真实但很弱。结论：可确认"有连续渐变且以≈2 秒重复"，**不能**对每帧亮度做定量判定。
+
+### 出了什么问题 & 如何修复
+
+- **照抄计划书代码编译不过**：报 `'ledcSetup' was not declared in this scope`、`'ledcAttachPin' ... did you mean 'ledcAttach'?`。计划书代码写于 arduino-esp32 **2.x** 时代，而本机内核是 **3.3.10-cn**，3.x 已删除这两个函数。修复：改用 `ledcAttach(pin, freq, resolution)` + `ledcWrite(pin, duty)`，并按引脚（而非通道）写 duty；`pinMode()` 也不再需要。
+- **彩灯循环要被复制到每个任务里**：Day 9 把它写成了草图内代码而非模块。修复：抽成 `RgbCycle` 库（代价是系统库目录与仓库备份两份副本需手动同步）。
+- **两个灯都快得不像话**：初版彩灯 500ms/色、呼吸 1.0s 单程，实机看都在"急闪"。修复：彩灯放慢到 800ms/色、呼吸放慢到 ≈2 s 一周期，并给库加了 `setInterval()`。
+- **代码注释与实际参数不符**：`combined_pwm_blink.ino` 内联注释仍写"500ms 换色"/"12ms 步进"，实际为 800ms / 4ms。改参数时注释最容易漏掉，看节奏以常量定义为准。
+
+### 尚未完成
+
+Day 10 计划中的任务 4/5 —— 电位器接 GPIO1（ADC1_CH0）做手动调光，以及 ADC1 / ADC2 通道限制的验证。
+
+---
+
 ## 学习日志规范
 
 每天的学习内容放在对应日期文件夹中，包括：
@@ -1161,6 +1291,9 @@ void loop() {
 完整 BOM（物料清单）和预算分级详见：
 - [`教程/第1月-电子学与工作台.md`](./%E6%95%99%E7%A8%8B/%E7%AC%AC1%E6%9C%88-%E7%94%B5%E5%AD%90%E5%AD%A6%E4%B8%8E%E5%B7%A5%E4%BD%9C%E5%8F%B0.md)
 - [`进度/第1月-30天逐日指南.md`](./%E8%BF%9B%E5%BA%A6/%E7%AC%AC1%E6%9C%88-30%E5%A4%A9%E9%80%90%E6%97%A5%E6%8C%87%E5%8D%97.md)
+- [`元器件库存清单.md`](./元器件库存清单.md) — 手头元件与待购清单
+
+> 📷 **认不出元件时看实物照片：** [`docs/元器件.jpg`](./docs/元器件.jpg)（面包板套件内容物详情图），按外观比对找出对应元器件。
 
 ---
 
