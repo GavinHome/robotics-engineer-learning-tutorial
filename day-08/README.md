@@ -44,7 +44,7 @@
 | USB-OTG | **GPIO19 (D-) / GPIO20 (D+)** | 原生 USB，也可做 USB-JTAG 调试 |
 | JTAG 调试 | **GPIO39–42** | 默认 JTAG 复用脚 |
 | 电源引脚 | **3V3 / 5V / GND** | 5V 可输入 4.5–5.5V；3V3 为板载 LDO 输出（约 1A，不建议大电流拉载） |
-| 板载 RGB LED | **GPIO48** | WS2812B，单总线可编程彩灯（需额外库驱动） |
+| 板载 RGB LED | **GPIO48** | WS2812B，单总线可编程彩灯（需额外库驱动，Day 9 已点亮） |
 | 启动 / 复位 | **GPIO0 (BOOT) / EN (复位)** | 按住 BOOT 上电可进下载模式 |
 
 ### 模拟 / 触摸 / 外设分配
@@ -55,7 +55,7 @@
 | ADC2 | GPIO 11–20 | ⚠️ **Wi-Fi 工作时 ADC2 不可用** |
 | 触摸 Touch | GPIO 1–14 | 电容触摸通道 |
 
-> 注：板载 WS2812B 彩灯的控制脚 GPIO48 已从原理图确认，但**尚未实际点亮验证**。核对本地开发环境：esp32 3.3.10-cn 内置库（`ESP32`、`BLE`、`WiFi`、`Wire` 等）中不含 WS2812/NeoPixel 驱动库，`~/Documents/Arduino/libraries` 也为空，因此要用板载彩灯需先额外安装库（如 Adafruit NeoPixel）。Day 9 的点灯实验改用**外接 LED**，可绕开这一依赖。
+> 注：板载 WS2812B 彩灯的控制脚 GPIO48 已从原理图确认。核对本地开发环境：esp32 3.3.10-cn 内置库（`ESP32`、`BLE`、`WiFi`、`Wire` 等）中不含 WS2812/NeoPixel 驱动库，`~/Documents/Arduino/libraries` 也为空，因此要用板载彩灯需先额外安装库（如 Adafruit NeoPixel）。**该灯已在 Day 9 安装库后实际点亮并验证**（绿 → 蓝 → 红循环），详见 [`day-09/README.md`](../day-09/README.md)。
 
 ---
 
@@ -154,7 +154,7 @@ CPU 频率: 240 MHz
 3. 搭好了 Arduino IDE + esp32 3.3.10-cn 环境，配置项（16MB Flash / OPI PSRAM / CDC 关闭）已固化为可复用模板。
 4. 自检程序跑通，硬件参数全部符合标称。
 
-**下一步（Day 9）**：第一个点灯程序 Blink —— 外接 LED 接 **GPIO2 → 220Ω 限流电阻 → LED → GND**，分别测试 500ms / 100ms / 2000ms 的闪烁间隔。
+**下一步（Day 9）**：第一个程序 Blink —— 本板无普通 LED 可直连，改用**板载 WS2812B 彩灯（GPIO48）** 实现绿 → 蓝 → 红循环（需先装 Adafruit NeoPixel 库）；计划中的外接 LED 实验（GPIO2 → 220Ω → LED → GND）与 100ms / 2000ms 快慢闪对比留待补做。
 
 ---
 
