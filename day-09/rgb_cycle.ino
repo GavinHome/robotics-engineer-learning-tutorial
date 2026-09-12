@@ -9,16 +9,16 @@
 
 #include <Adafruit_NeoPixel.h>
 
-#define RGB_PIN   48    // 板载 WS2812B 控制脚（net RGB_CTRL）
-#define RGB_COUNT 1     // 板上只有一颗灯珠
+#define RGB_PIN   48   // 板载 WS2812B 控制脚
+#define RGB_COUNT 1    // 只有一颗灯珠
 
 // NEO_GRB + NEO_KHZ800 是 WS2812B 的标准时序组合
 Adafruit_NeoPixel rgb(RGB_COUNT, RGB_PIN, NEO_GRB + NEO_KHZ800);
 
 void setup() {
   rgb.begin();
-  rgb.setBrightness(50);   // 0-255，先调低亮度，避免直视刺眼
-  rgb.show();              // 上电先熄灭，清掉复位期间锁存的随机颜色
+  rgb.setBrightness(50);  // 0-255，先调低，避免刺眼
+  rgb.show();             // 上电先熄灭
 }
 
 void loop() {
