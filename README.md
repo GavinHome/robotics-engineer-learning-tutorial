@@ -11,6 +11,8 @@
 | [`docs/`](./docs/) | ESP32-S3 开发板原始资料（原理图 + 引脚图）+ 元器件实物照片 [`元器件.jpg`](./docs/元器件.jpg) |
 | [`day-01/`](./day-01/) … [`day-10/`](./day-10/) | 每日学习内容（截图、电路文件、代码与笔记） |
 
+> 📌 **代码约定（Day 10 起）**：后续实验代码默认写成和板载彩灯并行的 `loop()`（一行 `RgbCycle::update()` + 各自 `millis()` 判断），不再单独交"只有灯"的草图。
+
 本仓库同时作为公开学习日志。每个实验、电路和机器人项目都会记录照片、原理图、代码，以及专门的「出了什么问题 & 如何修复」部分。
 
 ---
@@ -50,7 +52,7 @@ robotics-engineer-learning-tutorial/
 ├── day-01/ … day-07/            ← 第 1 周：电路理论与仿真（截图 + 电路文件 + 笔记）
 ├── day-08/                      ← 第 8 天：ESP32-S3 开发板认识与开发环境搭建
 ├── day-09/                      ← 第 9 天：第一个程序 Blink（板载 WS2812B 彩灯 + 外接 LED）
-└── day-10/                      ← 第 10 天：PWM 呼吸灯（占空比调亮度 + 双任务并行）
+└── day-10/                      ← 第 10 天：PWM 呼吸灯 + 电位器调光（占空比调亮度 + ADC 调光）
 ```
 
 ---
@@ -1145,30 +1147,32 @@ void loop() {
 
 ---
 
-## 第 10 天 — PWM 呼吸灯
+## 第 10 天 — PWM 呼吸灯 + 电位器调光
 
 ### 目标
 
-Day 9 里 GPIO 只有"全亮 / 全灭"两态（`digitalWrite`）。Day 10 要拿到**第三种状态：任意亮度**——靠 **PWM（脉冲宽度调制）**，引脚高速开 / 关，用"开的时间占比"（占空比）决定平均亮度。占空比从 0 升到满再降回，就是呼吸灯。
+Day 9 里 GPIO 只有"全亮 / 全灭"两态（`digitalWrite`）。Day 10 要拿到**第三种状态：任意亮度**——靠 **PWM（脉冲宽度调制）**，引脚高速开 / 关，用"开的时间占比"（占空比）决定平均亮度。占空比从 0 升到满再降回，就是呼吸灯；占空比由旋钮决定，就是电位器调光。
 
 ESP32 的 PWM 由 **LEDC 外设**硬件产生：配置一次后硬件持续输出波形，CPU 去发 WS2812B 数据也不会打断它。这是后续 Day 11（按键）、Day 19（电机）非阻塞编程的硬件基础。
 
 > 完整内容（API 断裂处理、代码、视频、周期验证、踩坑记录）见 [`day-10/README.md`](./day-10/README.md)。
+>
+> **代码约定（本课起）**：后续实验的代码默认都写成一个和板载彩灯并行的 `loop()`，不再单独交一份"只有灯"的草图。
 
-**不用重新搭电路——完全复用 Day 9 实验二/三的外接 LED，一根线都不用加。**
+两个任务一览：
 
-两个实验一览：
-
-| 实验 | 代码 | 内容 | 控制脚 |
+| 任务 | 代码 | 内容 | 控制脚 |
 | --- | --- | --- | --- |
-| 实验一 | [`day-10/breath_led/breath_led.ino`](./day-10/breath_led/breath_led.ino) | 外接 LED 呼吸（单任务） | GPIO2 |
-| 实验二 | [`day-10/combined_pwm_blink/combined_pwm_blink.ino`](./day-10/combined_pwm_blink/combined_pwm_blink.ino) | 板载彩灯循环 + 外接 LED 呼吸（双任务并行） | GPIO48 + GPIO2 |
+| 任务一 | [`day-10/combined_pwm_blink/combined_pwm_blink.ino`](./day-10/combined_pwm_blink/combined_pwm_blink.ino) | 板载彩灯循环 + 外接 LED 呼吸（亮度由代码自动渐变） | GPIO48 + GPIO2 |
+| 任务二 | [`day-10/pot_dimmer/pot_dimmer.ino`](./day-10/pot_dimmer/pot_dimmer.ino) | 板载彩灯循环 + 电位器手动调光（亮度由旋钮决定） | GPIO48 + GPIO2 + GPIO1 |
 
-### 实验一：外接 LED 呼吸灯
+> 另有最小示例 [`day-10/breath_led/breath_led.ino`](./day-10/breath_led/breath_led.ino)：把呼吸逻辑单独拎出来、不带彩灯，只为看清占空比本身。
 
-**接线**：沿用 Day 9 —— `GPIO2 → 220Ω 限流电阻 → LED 长脚（阳极）→ LED 短脚（阴极）→ GND`
+### 任务一：外接 LED 呼吸灯
 
-完整代码：[`day-10/breath_led/breath_led.ino`](./day-10/breath_led/breath_led.ino)
+**接线**：沿用 Day 9 —— `GPIO2 → 220Ω 限流电阻 → LED 长脚（阳极）→ LED 短脚（阴极）→ GND`，一根线都不用加。
+
+完整代码（最小版）：[`day-10/breath_led/breath_led.ino`](./day-10/breath_led/breath_led.ino)
 
 ```cpp
 const int LED_PIN = 2;
@@ -1192,7 +1196,7 @@ void loop() {
 - `ledcAttach(pin, freq, resolution)` — 把引脚绑到 LEDC，设定 PWM 频率与分辨率。8 位分辨率意味着 duty 取 **0~255**。
 - `ledcWrite(pin, duty)` — 写占空比。**按引脚写**，不按通道写。
 
-### 实验二：彩灯 + 呼吸灯双任务并行
+### 任务一的完整版：彩灯 + 呼吸灯双任务并行
 
 完整代码：[`day-10/combined_pwm_blink/combined_pwm_blink.ino`](./day-10/combined_pwm_blink/combined_pwm_blink.ino)
 
@@ -1233,6 +1237,57 @@ void loop() {
 
 `millis()` 判断必须用相减写法 `now - lastBreath >= BREATH_INTERVAL`（而不是 `now >= lastBreath + INTERVAL`），前者在 `unsigned long` 溢出回绕时依然正确。
 
+### 任务二：电位器手动调光
+
+**电路**（在任务一基础上只加一个电位器，LED 那一路不动）：
+
+| 电位器引脚 | 接到 |
+| --- | --- |
+| 一端脚 | **3V3** |
+| 另一端脚 | **GND** |
+| 中间脚（滑臂） | **GPIO1**（= ADC1_CH0，ADC1 不与 Wi-Fi 冲突） |
+
+> ⚠️ 接反的典型症状是读数恒定或乱跳——`analogRead()` 读的是中间脚电压，只有中间脚接 GPIO1 才会随旋钮在 0~3.3V 之间滑动。
+
+完整代码：[`day-10/pot_dimmer/pot_dimmer.ino`](./day-10/pot_dimmer/pot_dimmer.ino)
+
+```cpp
+#include <RgbCycle.h>
+
+const int LED_PIN = 2;
+const int POT_PIN = 1;                    // GPIO1 = ADC1_CH0
+
+const unsigned long READ_INTERVAL = 20;   // 每 20ms 采一次
+unsigned long lastRead = 0;
+
+void setup() {
+  RgbCycle::begin();
+  RgbCycle::setInterval(800);
+  ledcAttach(LED_PIN, 5000, 8);
+  ledcWrite(LED_PIN, 0);
+  Serial.begin(115200);
+}
+
+void loop() {
+  RgbCycle::update();   // 任务 A：彩灯照常循环
+
+  unsigned long now = millis();
+  if (now - lastRead >= READ_INTERVAL) {   // 任务 B：读电位器
+    lastRead = now;
+    int potValue   = analogRead(POT_PIN);              // 0~4095（12 位 ADC）
+    int brightness = map(potValue, 0, 4095, 0, 255);   // 压到 duty 的 0~255
+    ledcWrite(LED_PIN, brightness);
+    Serial.printf("Pot: %4d  Brightness: %3d\n", potValue, brightness);
+  }
+}
+```
+
+链路：`转旋钮 → 滑臂电压 0~3.3V → GPIO1 读到 0~4095 → map() 压到 0~255 → ledcWrite() 输出亮度`
+
+> `map()` 只做**线性**换算，而人眼对亮度的感知是非线性的（任务一观察到的现象），所以实际转旋钮会觉得**低亮度区间变化太快、高亮度区间几乎看不出区别**。本任务先用最直白的线性映射跑通"读 ADC → 控 PWM"的链路，gamma 修正留待后续。
+
+> 状态：**✅ 已上机实测**——三个旋钮位置的读数与 `map()` 公式完全吻合（见下方「运行结果」）。
+
 ### 彩灯循环抽成了 `RgbCycle` 库
 
 Day 10 综合版一开始把 Day 9 的彩灯循环又复制了一遍。照这个趋势每个任务都要再抄一遍，于是抽成 Arduino 库 **`RgbCycle`**，装在 `~/Documents/Arduino/libraries/RgbCycle/`，任意草图一行 `#include <RgbCycle.h>` 即可调用：
@@ -1251,9 +1306,9 @@ void loop()  { RgbCycle::update();   /* 其他任务 */ }
 
 库源码在仓库留了备份：[`day-10/lib/RgbCycle/`](./day-10/lib/RgbCycle/)（两份副本，改动需手动同步）。
 
-### 运行结果（视频实录）
+### 运行结果
 
-完整视频：[`day-10/LED呼吸灯效果.MOV`](./day-10/LED呼吸灯效果.MOV)（HEVC 1920×1080，29.97 fps，227 帧，7.57 s）。
+**任务一（呼吸灯）视频实录**：[`day-10/LED呼吸灯效果.MOV`](./day-10/LED呼吸灯效果.MOV)（HEVC 1920×1080，29.97 fps，227 帧，7.57 s）。
 
 面包板上为跳线、220Ω 限流电阻与外接 LED，LED 呈连续的"渐亮 → 渐暗"循环，肉眼可见平滑呼吸。
 
@@ -1261,16 +1316,35 @@ void loop()  { RgbCycle::update();   /* 其他任务 */ }
 
 > **验证方式的局限**：逐帧整幅平均亮度的标准差仅 **1.355**，几乎是平的——相机自动曝光把亮度变化抵消掉了，所以**平均亮度不能用来判断呼吸节奏**（同 Day 9 的坑）。改用自相关虽能看出 ≈2 秒周期，但逐像素相关中 |r| > 0.6 的像素仅占 0.149%，信号真实但很弱。结论：可确认"有连续渐变且以≈2 秒重复"，**不能**对每帧亮度做定量判定。
 
+**任务二（电位器调光）串口实测**：三个旋钮位置各拍一组"串口读数 + 实物 LED"照片（[`day-10/POT-137.png`](./day-10/POT-137.png) / [`POT-1684.png`](./day-10/POT-1684.png) / [`POT-4095.png`](./day-10/POT-4095.png)）。
+
+| 旋钮位置 | `analogRead()` | `pot × 255 ÷ 4095` | 实测 duty | 是否吻合 |
+| --- | --- | --- | --- | --- |
+| 拧到底 | 4095 | 255.00 | 255 | ✅ |
+| 中间某处 | 1684 | 104.86 → 截断 | 104 | ✅ |
+| 接近最小 | 137 | 8.53 → 截断 | 8 | ✅ |
+
+- **整条链路正确**：三个点的实测值都与 `map(pot, 0, 4095, 0, 255)` 完全一致，并顺带确认 `map()` 是**整数截断**（不四舍五入）——这也是它低亮度段不好精调的原因之一。
+- **接线正确、读数稳定**：旋钮不动时读数只抖 **±1~3 个计数**（1683/1684/1682/1680），是 ADC 正常噪声；且在这三个位置都没跨过进位边界，所以 duty 稳定、不会因此闪。
+- **三档亮度肉眼可分辨**：duty 255 明显最亮 → 104 明显变暗 → 8 只剩微光。
+
+> ⚠️ **照片只能支持定性结论**：相机自动曝光把亮度排序反了（duty 8 那张全画面平均亮度 115.78，反而高于 duty 255 那张的 100.63）；且三张为手持拍摄、画面未对齐（与 duty 255 帧的归一化互相关仅 0.155~0.172）。所以只写"哪张亮哪张暗"，不写"亮多少倍"。
+
+**踩坑：LED"一闪一闪"其实是烧错了草图。** 现象是"POT 值变了但 LED 一会儿亮一会儿灭"。串口读数稳定（见上表）已排除 ADC 侧问题；翻看 `POT-1684.png` 的编辑器窗口，当时打开的是任务一的**呼吸灯**草图 `combined_pwm_blink.ino`——它让 duty 在 0↔255 之间自己来回扫，旋钮怎么拧都盖不过它。修复：确认重新上传 `pot_dimmer.ino`。**教训：串口有正常输出只能证明程序在跑，不能证明跑的是你正在看的那份代码。**（诚实边界：截图记录的是编辑器当时打开的文件，无法证明当时板子上跑的固件就是它——这是最符合证据的解释，不是已证实的结论。）
+
 ### 出了什么问题 & 如何修复
 
 - **照抄计划书代码编译不过**：报 `'ledcSetup' was not declared in this scope`、`'ledcAttachPin' ... did you mean 'ledcAttach'?`。计划书代码写于 arduino-esp32 **2.x** 时代，而本机内核是 **3.3.10-cn**，3.x 已删除这两个函数。修复：改用 `ledcAttach(pin, freq, resolution)` + `ledcWrite(pin, duty)`，并按引脚（而非通道）写 duty；`pinMode()` 也不再需要。
 - **彩灯循环要被复制到每个任务里**：Day 9 把它写成了草图内代码而非模块。修复：抽成 `RgbCycle` 库（代价是系统库目录与仓库备份两份副本需手动同步）。
 - **两个灯都快得不像话**：初版彩灯 500ms/色、呼吸 1.0s 单程，实机看都在"急闪"。修复：彩灯放慢到 800ms/色、呼吸放慢到 ≈2 s 一周期，并给库加了 `setInterval()`。
 - **代码注释与实际参数不符**：`combined_pwm_blink.ino` 内联注释仍写"500ms 换色"/"12ms 步进"，实际为 800ms / 4ms。改参数时注释最容易漏掉，看节奏以常量定义为准。
+- **LED 一闪一闪（其实是烧错了草图）**：串口读数稳定说明 ADC 侧没问题（电位器接线是对的），当时编辑器里打开并烧进去的是任务一的呼吸灯草图 `combined_pwm_blink.ino`，它的 duty 在 0↔255 自动来回扫，把旋钮的写入盖掉了。修复：重新上传 `pot_dimmer.ino`。
 
-### 尚未完成
+### 任务二结论（已实测）
 
-Day 10 计划中的任务 4/5 —— 电位器接 GPIO1（ADC1_CH0）做手动调光，以及 ADC1 / ADC2 通道限制的验证。
+电位器调光**已上机实测通过**：`analogRead()` 读 GPIO1 → `map()` → `ledcWrite()` 这条链路正确，三个旋钮位置的 duty 与公式完全吻合。
+
+**待办**：解决线性 `map` 在低亮度区间变化过快的问题（**gamma 修正**）；补拍一组**固定机位**的亮度对比照（当前三张为手持，自动曝光还把亮度排序反了）。
 
 ---
 

@@ -11,6 +11,8 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) |
 | [`day-01/`](./day-01/) … [`day-10/`](./day-10/) | Daily work (screenshots, circuit files, code, notes) |
 
+> 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
+
 This repo doubles as a public learning journal. Every experiment, circuit, and robot project is documented with photos, schematics, code, and a dedicated "What Went Wrong & How I Fixed It" section.
 
 ---
@@ -1099,26 +1101,30 @@ Four 500 ms phases, one full cycle of **2 s**:
 
 ---
 
-## Day 10 — PWM Breathing LED
+## Day 10 — PWM Breathing LED + Potentiometer Dimming
 
 ### Goal
 
-On Day 9 GPIO had only two states — fully on or fully off (`digitalWrite`). Day 10 adds the **third state: any brightness** — via **PWM (pulse-width modulation)**: the pin switches on and off very fast, and the "on-time fraction" (duty cycle) sets the average brightness. Sweeping duty from 0 up to full and back down gives a breathing LED.
+On Day 9 GPIO had only two states — fully on or fully off (`digitalWrite`). Day 10 adds the **third state: any brightness** — via **PWM (pulse-width modulation)**: the pin switches on and off very fast, and the "on-time fraction" (duty cycle) sets the average brightness. Sweeping duty from 0 up to full and back down gives a breathing LED; letting a knob set the duty gives potentiometer dimming.
 
 The ESP32 generates PWM in the **LEDC peripheral**: configured once, the hardware keeps emitting the waveform on its own, so the CPU can go send WS2812B data without disturbing it. This is the hardware basis for the non-blocking style used by Day 11 (buttons) and Day 19 (motors).
 
 > Full write-up (API breakage, code, video, period verification, pitfalls) in [`day-10/README.md`](./day-10/README.md).
+>
+> **Code convention (from this day on)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel — no more separate "LED-only" sketches.
 
-**No new circuit to build — this fully reuses Day 9's external LED. Not a single wire is added.**
+**Task 1 needs no new circuit** — it fully reuses Day 9's external LED. Task 2 adds only a potentiometer.
 
-| Experiment | Code | Content | Pins |
+| Task | Code | Content | Pins |
 | --- | --- | --- | --- |
-| 1 | [`day-10/breath_led/breath_led.ino`](./day-10/breath_led/breath_led.ino) | External LED breathing (single task) | GPIO2 |
-| 2 | [`day-10/combined_pwm_blink/combined_pwm_blink.ino`](./day-10/combined_pwm_blink/combined_pwm_blink.ino) | Colour cycle + LED breathing (two parallel tasks) | GPIO48 + GPIO2 |
+| 1 | [`day-10/combined_pwm_blink/combined_pwm_blink.ino`](./day-10/combined_pwm_blink/combined_pwm_blink.ino) | Colour cycle + LED breathing (brightness swept by code) | GPIO48 + GPIO2 |
+| 2 | [`day-10/pot_dimmer/pot_dimmer.ino`](./day-10/pot_dimmer/pot_dimmer.ino) | Colour cycle + potentiometer dimming (brightness set by the knob) | GPIO48 + GPIO2 + GPIO1 |
 
-### Experiment 1: External LED Breathing
+> There is also a minimal example, [`day-10/breath_led/breath_led.ino`](./day-10/breath_led/breath_led.ino), which strips the breathing logic out of the colour cycle so the duty cycle itself is easier to see.
 
-**Wiring**: same as Day 9 — `GPIO2 → 220Ω current-limiting resistor → LED long leg (anode) → LED short leg (cathode) → GND`
+### Task 1: External LED Breathing
+
+**Wiring**: same as Day 9 — `GPIO2 → 220Ω current-limiting resistor → LED long leg (anode) → LED short leg (cathode) → GND`, not a single wire added.
 
 ```cpp
 const int LED_PIN = 2;
@@ -1142,7 +1148,7 @@ The two APIs and their roles:
 - `ledcAttach(pin, freq, resolution)` — binds a pin to LEDC and sets PWM frequency and resolution. 8-bit resolution means duty spans **0–255**.
 - `ledcWrite(pin, duty)` — writes the duty cycle, **keyed by pin**, not by channel.
 
-### Experiment 2: Colour Cycle + Breathing, in Parallel
+### Task 1, Full Version: Colour Cycle + Breathing, in Parallel
 
 ```cpp
 #include <RgbCycle.h>   // Day 9's colour cycle, extracted into a reusable library
@@ -1181,6 +1187,57 @@ The key point: **there is not a single `delay()` anywhere in `loop()`**. Each pa
 
 The `millis()` test must use the subtraction form `now - lastBreath >= BREATH_INTERVAL` (not `now >= lastBreath + INTERVAL`) — the former stays correct when `unsigned long` wraps around.
 
+### Task 2: Potentiometer Dimming
+
+**Circuit** (adds only a potentiometer on top of Task 1; the LED path is untouched):
+
+| Potentiometer pin | Connects to |
+| --- | --- |
+| One outer pin | **3V3** |
+| Other outer pin | **GND** |
+| Middle pin (wiper) | **GPIO1** (= ADC1_CH0; ADC1 does not conflict with Wi-Fi) |
+
+> ⚠️ The classic symptom of getting this wrong is a reading that is constant or jitters wildly — `analogRead()` measures the wiper voltage, so only the middle pin belongs on GPIO1.
+
+Full code: [`day-10/pot_dimmer/pot_dimmer.ino`](./day-10/pot_dimmer/pot_dimmer.ino)
+
+```cpp
+#include <RgbCycle.h>
+
+const int LED_PIN = 2;
+const int POT_PIN = 1;                    // GPIO1 = ADC1_CH0
+
+const unsigned long READ_INTERVAL = 20;   // sample every 20ms
+unsigned long lastRead = 0;
+
+void setup() {
+  RgbCycle::begin();
+  RgbCycle::setInterval(800);
+  ledcAttach(LED_PIN, 5000, 8);
+  ledcWrite(LED_PIN, 0);
+  Serial.begin(115200);
+}
+
+void loop() {
+  RgbCycle::update();   // task A: the colour cycle carries on
+
+  unsigned long now = millis();
+  if (now - lastRead >= READ_INTERVAL) {   // task B: read the potentiometer
+    lastRead = now;
+    int potValue   = analogRead(POT_PIN);              // 0–4095 (12-bit ADC)
+    int brightness = map(potValue, 0, 4095, 0, 255);   // scale to duty 0–255
+    ledcWrite(LED_PIN, brightness);
+    Serial.printf("Pot: %4d  Brightness: %3d\n", potValue, brightness);
+  }
+}
+```
+
+Chain: `turn the knob → wiper voltage 0–3.3V → GPIO1 reads 0–4095 → map() scales to 0–255 → ledcWrite() sets the brightness`
+
+> `map()` is a **linear** conversion, while human brightness perception is non-linear (the effect observed in Task 1). In practice the low end of the knob changes far too fast and the high end barely seems to change. This task uses the plain linear map to get the "read ADC → drive PWM" chain working; gamma correction comes later.
+
+> Status: **✅ tested on hardware** — at three knob positions the readings match the `map()` formula exactly (see "Result" below).
+
 ### The Colour Cycle Became the `RgbCycle` Library
 
 The first combined sketch copied Day 9's colour cycle again. At that rate every later task would copy it too, so it was extracted into an Arduino library, **`RgbCycle`**, installed at `~/Documents/Arduino/libraries/RgbCycle/`. Any sketch can now use it with a single `#include <RgbCycle.h>`:
@@ -1199,24 +1256,45 @@ void loop()  { RgbCycle::update();   /* other tasks */ }
 
 A backup copy of the source lives in the repo: [`day-10/lib/RgbCycle/`](./day-10/lib/RgbCycle/) (two copies — changes must be synced by hand).
 
-### Result (Video Record)
+### Result
 
-Video: [`day-10/LED呼吸灯效果.MOV`](./day-10/LED呼吸灯效果.MOV) (HEVC 1920×1080, 29.97 fps, 227 frames, 7.57 s). The breadboard shows jumpers, the 220Ω resistor and the external LED, cycling smoothly through a continuous fade-up → fade-down with no visible stepping.
+**Task 1 (breathing LED), video record**: [`day-10/LED呼吸灯效果.MOV`](./day-10/LED呼吸灯效果.MOV) (HEVC 1920×1080, 29.97 fps, 227 frames, 7.57 s). The breadboard shows jumpers, the 220Ω resistor and the external LED, cycling smoothly through a continuous fade-up → fade-down with no visible stepping.
 
 Period verification used **autocorrelation**: the peak sits at lag 72 frames = **2.40 s** (r = 0.627), the strongest negative lobe at **0.83 s** (r = −0.505), the same order as the designed **2.048 s**.
 
 > **Limitation of the measurement**: the standard deviation of the whole-frame mean luminance is only **1.355** — essentially flat, because camera auto-exposure cancels the brightness change. So **mean luminance cannot be used to judge the breathing rhythm** (the same trap as Day 9). Autocorrelation does reveal a ≈2 s period, but in the per-pixel correlation only 0.149% of pixels have |r| > 0.6 — the signal is real but weak. Conclusion: we can confirm "a continuous fade that repeats at ≈2 s"; we **cannot** make quantitative per-frame brightness claims.
 
+**Task 2 (potentiometer dimming), serial measurements**: three knob positions, each captured as a paired "serial monitor + actual LED" photo ([`day-10/POT-137.png`](./day-10/POT-137.png) / [`POT-1684.png`](./day-10/POT-1684.png) / [`POT-4095.png`](./day-10/POT-4095.png)).
+
+| Knob position | `analogRead()` | `pot × 255 ÷ 4095` | Measured duty | Match |
+| --- | --- | --- | --- | --- |
+| Turned to max | 4095 | 255.00 | 255 | ✅ |
+| Somewhere mid | 1684 | 104.86 → truncated | 104 | ✅ |
+| Near minimum | 137 | 8.53 → truncated | 8 | ✅ |
+
+- **The whole chain is correct**: all three measured values match `map(pot, 0, 4095, 0, 255)` exactly. This also confirms `map()` **truncates to an integer** (no rounding) — one reason it feels imprecise at the low end.
+- **The wiring is correct and the reading is stable**: with the knob untouched the reading jitters by only **±1–3 counts** (1683/1684/1682/1680), which is normal ADC noise; none of the three positions sits near a `map()` boundary, so the duty is stable and does not flicker.
+- **The three brightness levels are visually distinguishable**: duty 255 is clearly brightest → 104 clearly dimmer → 8 barely visible.
+
+> ⚠️ **The photos support only a qualitative conclusion**: camera auto-exposure inverts the ordering (the whole-frame mean luminance of the duty-8 shot is 115.78, *higher* than 100.63 for duty 255), and the three shots are handheld and unaligned (normalized cross-correlation against the duty-255 frame is only 0.155–0.172). So this log claims only "which one is brighter", never "how many times brighter".
+
+**Pitfall: the flickering LED was the wrong sketch being flashed.** The symptom was "the POT value changes, but the LED blinks on and off". The stable serial readings above rule out the ADC side; the editor pane in `POT-1684.png` shows `combined_pwm_blink.ino` — Task 1's **breathing** sketch — open at the time. It sweeps duty from 0 to 255 and back on its own, overriding whatever the knob writes. Fix: confirm `pot_dimmer.ino` is re-uploaded. **Lesson: a functioning serial output only proves *a* program is running, not that it is the one you are looking at.** (Honest boundary: the screenshot records which file the editor had open; it cannot prove which firmware was running on the board — this is the explanation best supported by the evidence, not a proven conclusion.)
+
 ### What Went Wrong & How I Fixed It
 
 - **The guide's reference code would not compile**: `'ledcSetup' was not declared in this scope`, `'ledcAttachPin' ... did you mean 'ledcAttach'?`. The guide was written for arduino-esp32 **2.x**, while this machine runs core **3.3.10-cn**, where both functions are gone. Fix: use `ledcAttach(pin, freq, resolution)` + `ledcWrite(pin, duty)`, writing duty by **pin** rather than channel; `pinMode()` is no longer needed.
 - **The colour cycle had to be pasted into every task**: Day 9 had written it as in-sketch code rather than a module. Fix: extracted into the `RgbCycle` library (at the cost of keeping two copies in sync).
-- **Both lights were absurdly fast**: the first version used 500ms per colour and a 1.0s one-way breath, so both looked like frantic blinking on the bench. Fix: slowed the pixel to 800ms per colour and the breath to ≈2 s per cycle, and added `setInterval()` to the library.
+- **Both lights were absurdly fast**: the first version used 500ms per colour and a 1.0s one-way breath, so both the onboard pixel and the external LED looked like frantic blinking on the bench. Fix: slowed the pixel to 800ms per colour and the breath to ≈2 s per cycle, and added `setInterval()` to the library.
 - **Comments disagree with the actual constants**: two inline comments in `combined_pwm_blink.ino` still say "500ms per colour" / "12ms per step" while the real values are 800ms / 4ms. Comments are the easiest thing to forget when tuning constants — trust the constant definitions.
+- **LED flickering on and off (wrong sketch flashed)**: the stable serial readings ruled out the ADC side (the potentiometer wiring was right). The sketch open in the editor and flashed at the time was Task 1's breathing sketch, `combined_pwm_blink.ino`, whose duty sweeps 0↔255 on its own and overwrites whatever the knob writes. Fix: re-upload `pot_dimmer.ino`.
 
-### Not Yet Done
+> Wiring-mistake checklist (kept for reference): wire the potentiometer alone first, print only `potValue`, and turn the knob — the value should run smoothly through 0–4095 before the LED is wired back in. The two classic mistakes are (a) putting GPIO1 on an outer pin instead of the middle wiper pin, and (b) leaving the wiper floating, in which case `analogRead()` returns noise.
 
-Tasks 4/5 of the Day 10 plan — a potentiometer on GPIO1 (ADC1_CH0) for manual dimming, plus verifying the ADC1 / ADC2 channel restrictions.
+### Task 2 — Conclusion (now tested)
+
+Potentiometer dimming **is tested and working on hardware**: the chain `analogRead()` on GPIO1 → `map()` → `ledcWrite()` is correct, and the duty at all three knob positions matches the formula exactly.
+
+**Still to do**: fix the linear `map()` changing far too fast at the low end (**gamma correction**); and take a **fixed-camera** brightness comparison (the current three are handheld, and auto-exposure inverted the ordering).
 
 ---
 
