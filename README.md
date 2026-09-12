@@ -49,7 +49,7 @@ robotics-engineer-learning-tutorial/
 ├── 元器件库存清单.md            ← 手头元件与待购清单
 ├── day-01/ … day-07/            ← 第 1 周：电路理论与仿真（截图 + 电路文件 + 笔记）
 ├── day-08/                      ← 第 8 天：ESP32-S3 开发板认识与开发环境搭建
-└── day-09/                      ← 第 9 天：第一个程序 Blink（板载 WS2812B 彩灯循环）
+└── day-09/                      ← 第 9 天：第一个程序 Blink（板载 WS2812B 彩灯 + 外接 LED）
 ```
 
 ---
@@ -979,15 +979,25 @@ void loop() {
 
 ---
 
-## 第 9 天 — 第一个程序 Blink（板载 WS2812B 彩灯循环）
+## 第 9 天 — 第一个程序 Blink（板载 WS2812B 彩灯 + 外接 LED）
 
 ### 目标
 
-烧录第一个固件、理解 GPIO 输出。本板没有可直连的普通 LED，取而代之的是一颗板载可编程彩灯，因此直接把目标设为驱动它：能点亮并循环变色，Blink 要表达的内容（GPIO 输出 + `delay` 控节奏）就全部覆盖到了。
+烧录第一个固件、理解 GPIO 输出 + `delay` 控节奏。本板没有可直连的普通 LED，取而代之的是一颗板载可编程彩灯，所以第一步先驱动它；随后再补一颗外接普通 LED，把最经典的 `digitalWrite` Blink 也走一遍；最后把两路合并进同一个循环。三份代码构成 Day 9 的三个实验。
 
 > 完整内容（依赖安装、代码、视频、三色逐像素验证、踩坑记录）见 [`day-09/README.md`](./day-09/README.md)。
 
-### 板载灯珠
+三个实验一览：
+
+| 实验 | 代码 | 内容 | 控制脚 |
+| --- | --- | --- | --- |
+| 实验一 | [`day-09/rgb_cycle.ino`](./day-09/rgb_cycle.ino) | 板载 WS2812B 彩灯循环 | GPIO48 |
+| 实验二 | [`day-09/external_led_blink.ino`](./day-09/external_led_blink.ino) | 外接普通 LED 闪烁 | GPIO2 |
+| 实验三 | [`day-09/combined_blink.ino`](./day-09/combined_blink.ino) | 彩灯 + 外接 LED 合并到同一循环 | GPIO48 + GPIO2 |
+
+### 实验一：板载 WS2812B 彩灯循环
+
+#### 板载灯珠
 
 | 项目 | 参数 |
 | --- | --- |
@@ -999,7 +1009,11 @@ void loop() {
 
 > WS2812B 是数字器件，靠 800 kHz 窄脉冲编码通信，**不能 `digitalWrite` 直接驱动**，必须用专用库按时序发送数据。
 
-### 代码
+**电路**：`GPIO48 → 板载 WS2812B（板内走线）→ 灯珠 → GND`，灯珠和驱动 IC 全部焊在板上，无需任何外部接线。
+
+![电路-板载彩灯](day-09/电路-板载彩灯.png)
+
+#### 代码
 
 完整代码：[`day-09/rgb_cycle.ino`](./day-09/rgb_cycle.ino)
 
@@ -1034,7 +1048,7 @@ void loop() {
 
 `setPixelColor()` 只写内存缓冲区，`show()` 才真正把数据推给灯珠，两者缺一不可。
 
-### 运行结果（视频实录）
+#### 运行结果（视频实录）
 
 完整视频：[`day-09/板载彩灯红绿蓝循环.MOV`](./day-09/板载彩灯红绿蓝循环.MOV)（HEVC 1920×1080，29.97 fps，229 帧，7.64 s）
 
@@ -1052,7 +1066,7 @@ void loop() {
 
 三色主通道像素数与其余通道相差 1~4 个数量级，绿、蓝、红全部实测确认。三个相位分别位于 0.20 s / 0.55 s / 1.05 s，相邻间隔 0.35~0.50 s，与 `delay(500)` 相符。
 
-### 关键观察
+#### 关键观察
 
 1. **板载灯珠 ≠ 普通 LED**：WS2812B 是数字器件，必须用库驱动，不能 `digitalWrite`
 2. **`setPixelColor` + `show()` 缺一不可**：前者写内存，后者才发送
@@ -1060,6 +1074,68 @@ void loop() {
 4. **复位期间 GPIO48 悬空会锁存随机色**：这就是"新板子插上就亮一个颜色"的来源，`setup()` 里主动 `show()` 熄灭即可根治
 5. **WS2812B 没有掉电记忆**：一次上电只记得最后收到的 24 bit，掉电即忘；要记忆须固件侧做持久化
 6. **相机自动曝光会骗人**：绿光相位会被压成近灰白，判断灯珠颜色要用固定区域 + 主通道统计
+
+### 实验二：外接普通 LED 闪烁
+
+板载灯珠走的是 800 kHz 单总线协议，必须用库驱动；为了验证 GPIO 最原始的"直接输出"用法，再接一颗普通 LED，用经典 `digitalWrite` 驱动。
+
+**接线**：`GPIO2 → 220Ω 限流电阻 → LED 长脚（阳极）→ LED 短脚（阴极）→ GND`
+
+| 元件 | 说明 |
+| --- | --- |
+| 限流电阻 | 220Ω（库存清单中的 220Ω ×10） |
+| LED | 普通直插 LED，长脚阳极、短脚阴极 |
+| 电源 | 板子 USB 5V，GPIO2 输出 3.3V 逻辑电平 |
+
+![电路-外接LED](day-09/电路-外接LED.png)
+
+完整代码：[`day-09/external_led_blink.ino`](./day-09/external_led_blink.ino)
+
+```cpp
+const int EXT_LED_PIN = 2;   // 外接 LED 控制脚
+
+void setup() {
+  pinMode(EXT_LED_PIN, OUTPUT);
+  digitalWrite(EXT_LED_PIN, LOW);   // 上电先灭
+  Serial.begin(115200);
+  Serial.println("ESP32-S3 外接 LED Blink Start");
+}
+
+void loop() {
+  digitalWrite(EXT_LED_PIN, HIGH);  // 3.3V → 电流经电阻流过 LED → 亮
+  Serial.println("LED ON");
+  delay(500);
+
+  digitalWrite(EXT_LED_PIN, LOW);   // 0V → LED 两端无压降 → 灭
+  Serial.println("LED OFF");
+  delay(500);
+}
+```
+
+**实物演示**：完整视频 [`day-09/外接LED.MOV`](./day-09/外接LED.MOV)（HEVC 1920×1080，29.97 fps，121 帧，4.035 s）。面包板上依次为跳线、220Ω 限流电阻与外接 LED，LED 按约 500 ms 亮 → 灭交替，与代码中 `delay(500)` 相符。
+
+> 这段视频是运行**实验二（独立版）**时录制的。实验三的 `loop()` 里 GPIO2 的驱动方式与实验二完全一致（同样每 500 ms 翻转），所以对实验三的**外接 LED 部分**同样成立。
+
+### 实验三：综合版（彩灯 + 外接 LED）
+
+把实验一和实验二合进同一个 `loop()`：每一步同时改变彩灯颜色和外接 LED 的通断。
+
+**接线**：实验一与实验二的叠加——GPIO48 仍是板内灯珠，GPIO2 仍接 `220Ω → LED → GND`，两路共用板子的 GND。
+
+![电路-综合版](day-09/电路-综合版.png)
+
+完整代码：[`day-09/combined_blink.ino`](./day-09/combined_blink.ino)
+
+四个相位各 500 ms，单循环 **2 s**：
+
+| 相位 | GPIO48 彩灯 | GPIO2 外接 LED |
+| --- | --- | --- |
+| 1 | 绿 | 亮 |
+| 2 | 蓝 | 灭 |
+| 3 | 红 | 亮 |
+| 4 | 全灭 | 灭 |
+
+**关键观察**：两路输出共用一个 `loop()`，`delay` 是共享的，所以两个相位天然同步；`rgb.show()`（单总线时序）和 `digitalWrite`（普通 GPIO）可以在同一循环里共存。
 
 ### 出了什么问题 & 如何修复
 
