@@ -1631,6 +1631,53 @@ V_GPIO1 = 3.3V × (10kΩ / (1000kΩ + 10kΩ))
 
 **代码：** [`day-12/实验2-光敏电阻测光照/实验2-光敏电阻测光照.ino`](./day-12/实验2-光敏电阻测光照/实验2-光敏电阻测光照.ino)
 
+### 实验 3：Serial Plotter 可视化
+
+> 日期：2026-09-14
+> 状态：✅ 已上机实测（串口绘图器可看到电压曲线随电位器旋转连续变化）
+>
+> 接线：与**实验 1 完全相同**（GPIO1 → 电位器中间脚，两侧接 3V3 和 GND）
+
+**目的：** 实验 1 和 2 打印带标签的文字，实验 3 只输出**纯数字**，让 Arduino IDE 串口绘图器画出实时电压曲线。
+
+**电路：** 与实验 1 相同（电位器分压，GPIO1 读数）。
+
+**代码：** [`day-12/实验3-Serial-Plotter可视化/实验3-Serial-Plotter可视化.ino`](./day-12/实验3-Serial-Plotter可视化/实验3-Serial-Plotter可视化.ino)
+
+```cpp
+#include <RgbCycle.h>
+
+const int ADC_PIN = 1;   // GPIO1 = ADC1_CH0
+
+void setup() {
+  RgbCycle::begin();
+  RgbCycle::setInterval(800);
+
+  Serial.begin(115200);
+  analogReadResolution(12);
+  analogSetAttenuation(ADC_11db);  // 量程 0-3.3V
+}
+
+void loop() {
+  RgbCycle::update();
+
+  int raw = analogRead(ADC_PIN);
+  float voltage = raw * 3.3 / 4095.0;
+  Serial.println(voltage);       // 只打印电压值，方便绘图器读取
+  delay(500);
+}
+```
+
+**与实验 1 代码的区别：**
+
+| | 实验 1 | 实验 3 |
+| --- | --- | --- |
+| 输出格式 | `Serial.printf("Raw: %4d Voltage: %.2fV\n", raw, voltage)` | `Serial.println(voltage)` |
+| 串口绘图器 | ❌ 不兼容（有文字标签） | ✅ 兼容（只有纯数字） |
+| 用途 | 调试、看具体数值 | 观察电压变化趋势 |
+
+**运行方法：** 上传代码 → 关闭串口监视器 → 工具 → 串口绘图器 → 旋转电位器看曲线。
+
 ### 下一步
 
 - **Day 13**：PWM 进阶（舵机控制）

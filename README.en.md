@@ -1596,6 +1596,53 @@ V_GPIO1 = 3.3V × (10kΩ / (1000kΩ + 10kΩ))
 
 **Code:** [`day-12/实验2-光敏电阻测光照/实验2-光敏电阻测光照.ino`](./day-12/实验2-光敏电阻测光照/实验2-光敏电阻测光照.ino)
 
+### Experiment 3: Serial Plotter Visualization
+
+> Date: 2026-09-14
+> Status: ✅ Tested on hardware (Serial Plotter shows smooth voltage curve as potentiometer rotates)
+>
+> Wiring: **Identical to Experiment 1** (GPIO1 → potentiometer middle pin, side pins to 3V3 and GND)
+
+**Goal:** Experiments 1 and 2 print labeled text. Experiment 3 outputs only a **single raw number** so Arduino IDE's Serial Plotter can draw a real-time voltage curve.
+
+**Circuit:** Same as Experiment 1 (potentiometer voltage divider, GPIO1 reads the wiper).
+
+**Code:** [`day-12/实验3-Serial-Plotter可视化/实验3-Serial-Plotter可视化.ino`](./day-12/实验3-Serial-Plotter可视化/实验3-Serial-Plotter可视化.ino)
+
+```cpp
+#include <RgbCycle.h>
+
+const int ADC_PIN = 1;   // GPIO1 = ADC1_CH0
+
+void setup() {
+  RgbCycle::begin();
+  RgbCycle::setInterval(800);
+
+  Serial.begin(115200);
+  analogReadResolution(12);
+  analogSetAttenuation(ADC_11db);  // full 0-3.3V range
+}
+
+void loop() {
+  RgbCycle::update();
+
+  int raw = analogRead(ADC_PIN);
+  float voltage = raw * 3.3 / 4095.0;
+  Serial.println(voltage);       // only the voltage value, for the Plotter
+  delay(500);
+}
+```
+
+**Difference from Experiment 1 code:**
+
+| | Experiment 1 | Experiment 3 |
+| --- | --- | --- |
+| Output format | `Serial.printf("Raw: %4d Voltage: %.2fV\n", raw, voltage)` | `Serial.println(voltage)` |
+| Serial Plotter | ❌ incompatible (has text labels) | ✅ compatible (pure numbers only) |
+| Use case | Debugging, reading exact values | Observing voltage trends |
+
+**How to run:** Upload → close Serial Monitor → Tools → Serial Plotter → rotate the potentiometer to see the curve move.
+
 ### Next Steps
 
 - **Day 13**: PWM Advanced (servo control)

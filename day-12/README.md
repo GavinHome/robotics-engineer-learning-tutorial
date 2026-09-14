@@ -239,7 +239,83 @@ void loop() {
 - **raw 值始终接近 2048**：光敏电阻两端接反了，或分压点接错了。修复：检查电路连接。
 
 ---
-## 九、下一步
+## 九、实验 3：Serial Plotter 可视化
+
+> 日期：2026-09-14
+> 状态：✅ 已上机实测（串口绘图器可看到电压曲线随电位器旋转连续变化）
+>
+> 接线：与**实验 1 完全相同**（GPIO1 → 电位器中间脚，两侧接 3V3 和 GND）
+
+### 目的
+
+实验 1 和实验 2 都在串口监视器里打印数字。实验 3 换一种输出方式——只打印**单个浮点数**，让 Arduino IDE 的**串口绘图器**把电压变化画成实时曲线。
+
+### 电路
+
+与实验 1 完全相同：
+
+| 器件 | 接线 |
+| --- | --- |
+| 电位器 | 3V3 → 左侧脚，GND → 右侧脚，GPIO1 → 中间脚 |
+| 板载彩灯 | GPIO48，照常运行 |
+
+### 代码
+
+完整代码：[`实验3-Serial-Plotter可视化.ino`](./实验3-Serial-Plotter可视化/实验3-Serial-Plotter可视化.ino)
+
+```cpp
+#include <RgbCycle.h>
+
+const int ADC_PIN = 1;   // GPIO1 = ADC1_CH0
+
+void setup() {
+  RgbCycle::begin();
+  RgbCycle::setInterval(800);
+
+  Serial.begin(115200);
+  analogReadResolution(12);
+  analogSetAttenuation(ADC_11db);  // 量程 0-3.3V
+}
+
+void loop() {
+  RgbCycle::update();
+
+  int raw = analogRead(ADC_PIN);
+  float voltage = raw * 3.3 / 4095.0;
+  Serial.println(voltage);       // 只打印电压值，方便绘图器读取
+  delay(500);
+}
+```
+
+### 与实验 1 代码的区别
+
+| | 实验 1 | 实验 3 |
+| --- | --- | --- |
+| 输出格式 | `Serial.printf("Raw: %4d Voltage: %.2fV\n", raw, voltage)` | `Serial.println(voltage)` |
+| 串口绘图器 | ❌ 不兼容（有文字标签） | ✅ 兼容（只有纯数字） |
+| 用途 | 调试、看具体数值 | 观察电压变化趋势 |
+
+### 运行方法
+
+1. 上传代码，打开串口监视器确认有输出
+2. 关闭串口监视器（绘图器和监视器不能同时开）
+3. Arduino IDE → 工具 → **串口绘图器**
+4. 旋转电位器，可以看到电压曲线实时上下移动
+
+### 运行结果
+
+- 电位器逆时针到底：曲线在底部（0V）
+- 电位器顺时针到底：曲线在顶部（3.3V）
+- 旋转过程中曲线连续平滑变化
+
+### 出了什么问题 & 如何修复
+
+- **绘图器只看到一条直线**：输出格式有文字标签（如 `Raw: 123 Voltage: 1.23V`），绘图器无法解析。修复：只输出纯数字，用 `Serial.println(voltage)`。
+- **绘图器曲线跳变很大**：波特率不匹配，或 ADC 噪声。修复：确认 `Serial.begin(115200)` 与绘图器设置一致。
+- **绘图器不显示**：串口监视器未关闭。修复：关闭监视器再打开绘图器。
+
+---
+## 十、下一步
 
 - Day 13：PWM 进阶（舵机控制）
 - 进阶：多次采样取平均，降低 ADC 噪声
