@@ -1543,13 +1543,56 @@ Open Arduino IDE → Tools → Serial Plotter to see the voltage curve change in
 **Voltage divider principle:**
 
 ```
-3V3 ──[LDR]── GPIO1 ──[10kΩ]── GND
+3V3 ──[R_LDR]── GPIO1 ──[10kΩ]── GND
+          (top)                     (bottom)
 ```
 
-Formula: `Vout = 3.3V × (10k / (R_LDR + 10k))`
+**Core principle: in a series circuit, the larger resistor gets the larger voltage drop.**
 
-- **Strong light**: R_LDR is very small → Vout ≈ 3.3V → raw ≈ 4095
-- **Covered/dark**: R_LDR is very large → Vout ≈ 0V → raw ≈ 0
+Formula: `V_GPIO1 = 3.3V × (R_bottom / (R_LDR + R_bottom))`
+
+**Strong light: R_LDR is very small → GPIO1 voltage is very high**
+
+Under strong light, the photoresistor resistance is very low (~500Ω–1kΩ):
+
+```
+V_GPIO1 = 3.3V × (10kΩ / (1kΩ + 10kΩ))
+        = 3.3V × (10k / 11k)
+        = 3.3V × 0.91
+        ≈ 3.00V  →  raw ≈ 3720
+```
+
+If light is extremely strong, R_LDR may be only about 100Ω:
+
+```
+V_GPIO1 = 3.3V × (10k / (0.1k + 10k))
+        = 3.3V × (10k / 10.1k)
+        ≈ 3.27V  →  raw ≈ 4050
+```
+
+Your measured raw ≈ 4095 (≈3.30V) indicates that under strong light R_LDR is extremely small, so the 10kΩ resistor takes almost the full 3.3V.
+
+**Key insight:** When the LDR is small, it drops almost no voltage → nearly all 3.3V falls across the bottom 10kΩ → GPIO1 voltage is high.
+
+**Covered/dark: R_LDR is very large → GPIO1 voltage is very low**
+
+When covered (hand over the sensor), the photoresistor resistance is very high (~1MΩ):
+
+```
+V_GPIO1 = 3.3V × (10kΩ / (1000kΩ + 10kΩ))
+        = 3.3V × (10k / 1010k)
+        = 3.3V × 0.0099
+        ≈ 0.033V  →  raw ≈ 40 ≈ 0
+```
+
+1MΩ is much larger than 10kΩ, so almost the entire 3.3V drops across the photoresistor, and the bottom 10kΩ gets only about 0.033V → GPIO1 voltage is near 0V.
+
+**Key insight:** When the LDR is large, it drops almost all the voltage → the bottom 10kΩ gets only a tiny fraction → GPIO1 voltage is low → raw is small.
+
+**One-line summary:**
+
+> **LDR small (strong light) → it "eats" little voltage → 10kΩ gets the high voltage at GPIO1 → raw is large**
+> **LDR large (darkness) → it "eats" most of the voltage → 10kΩ gets almost nothing → GPIO1 voltage is low → raw is small**
 
 **Code:** [`day-12/实验2-光敏电阻测光照/实验2-光敏电阻测光照.ino`](./day-12/实验2-光敏电阻测光照/实验2-光敏电阻测光照.ino)
 
