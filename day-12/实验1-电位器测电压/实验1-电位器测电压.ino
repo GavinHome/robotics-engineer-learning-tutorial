@@ -3,20 +3,18 @@
 const int ADC_PIN = 1;
 
 void setup() {
-  RgbCycle::begin();               // 彩灯：初始化
-  RgbCycle::setInterval(800);      // 彩灯：800ms/色
-
+  RgbCycle::begin();
+  RgbCycle::setInterval(800);
   Serial.begin(115200);
-  analogReadResolution(12);        // 设置 ADC 为 12 位（0-4095）
-  analogSetAttenuation(ADC_11db);  // 设置衰减，可测 0-3.3V
+  analogReadResolution(12);
+  analogSetAttenuation(ADC_11db);  // 量程 0-3.3V
 }
 
 void loop() {
-  RgbCycle::update();              // 任务 A：彩灯照常循环
+  RgbCycle::update();
 
   int raw = analogRead(ADC_PIN);
   float voltage = raw * 3.3 / 4095.0;
-  Serial.printf("Raw: %4d  Voltage: %.2fV\n", raw, voltage);
-
+  Serial.printf("Light: raw=%4d  voltage=%.2fV\n", raw, voltage);
   delay(500);
 }
