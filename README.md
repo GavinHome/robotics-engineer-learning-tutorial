@@ -9,7 +9,7 @@
 | [`教程/`](./%E6%95%99%E7%A8%8B/) | 1–6 月文章式原始学习计划 |
 | [`进度/`](./%E8%BF%9B%E5%BA%A6/) | 第 1 月 30 天逐日实践指南 + 专业术语中英文对照表 |
 | [`docs/`](./docs/) | ESP32-S3 开发板原始资料（原理图 + 引脚图）+ 元器件实物照片 [`元器件.jpg`](./docs/元器件.jpg) |
-| [`day-01/`](./day-01/) … [`day-10/`](./day-10/) | 每日学习内容（截图、电路文件、代码与笔记） |
+| [`day-01/`](./day-01/) … [`day-11/`](./day-11/) | 每日学习内容（截图、电路文件、代码与笔记） |
 
 > 📌 **代码约定（Day 10 起）**：后续实验代码默认写成和板载彩灯并行的 `loop()`（一行 `RgbCycle::update()` + 各自 `millis()` 判断），不再单独交"只有灯"的草图。
 
@@ -52,7 +52,8 @@ robotics-engineer-learning-tutorial/
 ├── day-01/ … day-07/            ← 第 1 周：电路理论与仿真（截图 + 电路文件 + 笔记）
 ├── day-08/                      ← 第 8 天：ESP32-S3 开发板认识与开发环境搭建
 ├── day-09/                      ← 第 9 天：第一个程序 Blink（板载 WS2812B 彩灯 + 外接 LED）
-└── day-10/                      ← 第 10 天：PWM 呼吸灯 + 电位器调光（占空比调亮度 + ADC 调光）
+├── day-10/                      ← 第 10 天：PWM 呼吸灯 + 电位器调光（占空比调亮度 + ADC 调光）
+└── day-11/                      ← 第 11 天：数字输入与按键（INPUT_PULLUP + 消抖）
 ```
 
 ---
@@ -1345,6 +1346,124 @@ void loop()  { RgbCycle::update();   /* 其他任务 */ }
 电位器调光**已上机实测通过**：`analogRead()` 读 GPIO1 → `map()` → `ledcWrite()` 这条链路正确，三个旋钮位置的 duty 与公式完全吻合。
 
 **待办**：解决线性 `map` 在低亮度区间变化过快的问题（**gamma 修正**）；补拍一组**固定机位**的亮度对比照（当前三张为手持，自动曝光还把亮度排序反了）。
+
+---
+
+## 第 11 天 — 数字输入与按键
+
+> 完整内容见 [`day-11/README.md`](./day-11/README.md)。
+
+### 目标
+
+Day 9/10 都是 GPIO **输出**。Day 11 反过来——读 GPIO **输入**：用一个按键控制 LED 亮灭。
+
+核心知识点：
+- **INPUT_PULLUP**：用内部上拉电阻，省掉外部电阻
+- **消抖**：按键按下瞬间触点弹跳，需延时 20ms 过滤
+- **边沿检测**：区分"按下"（FALLING）和"松开"（RISING）
+
+### 电路
+
+| 器件 | 接线 |
+| --- | --- |
+| 按键 | GPIO1 → 按键 → GND |
+| 外接 LED | GPIO2 → 220Ω → LED 长脚 → LED 短脚 → GND |
+| 板载彩灯 | GPIO48（不变，代码中 `RgbCycle::update()` 照常） |
+
+万用表实测：
+
+| 按键状态 | GPIO1 电压 |
+| --- | --- |
+| 松开 | 3.3V（内部上拉） |
+| 按下 | 0V（导通到 GND） |
+
+### 代码
+
+完整代码：[`day-11/day11.ino`](./day-11/day11.ino)
+
+```cpp
+#include <RgbCycle.h>
+
+const int BUTTON_PIN = 1;   // GPIO1 = 按键输入
+const int LED_PIN    = 2;   // GPIO2 = 外接 LED 输出
+
+void setup() {
+  RgbCycle::begin();            // 彩灯：初始化
+  RgbCycle::setInterval(800);   // 彩灯：800ms/色
+
+  pinMode(BUTTON_PIN, INPUT_PULLUP);  // 启用内部上拉，按键按下 = LOW
+  pinMode(LED_PIN,    OUTPUT);         // LED 引脚设为输出
+  Serial.begin(115200);
+}
+
+void loop() {
+  RgbCycle::update();   // 任务 A：彩灯照常循环
+
+  int buttonState = digitalRead(BUTTON_PIN);
+  if (buttonState == LOW) {          // 按键按下（被拉低）
+    digitalWrite(LED_PIN, HIGH);     // LED 亮
+    Serial.println("Button PRESSED");
+    delay(200);                      // 简单消抖：按住期间 200ms 只处理一次
+  } else {                           // 按键松开（被上拉回 HIGH）
+    digitalWrite(LED_PIN, LOW);      // LED 灭
+  }
+  delay(10);
+}
+```
+
+### `pinMode()` 详解
+
+这是新手最常问的问题：`setup()` 里写了 `pinMode()`，为什么 `loop()` 里还要写 `digitalWrite()`？
+
+`pinMode()` 和 `digitalWrite()` 干的是完全不同的事：
+
+| 函数 | 作用 | 类比 |
+| --- | --- | --- |
+| `pinMode(pin, INPUT_PULLUP)` | **配置引脚的工作模式**——"这个脚是输入还是输出？" | 给门贴标签："这是入口" |
+| `digitalWrite(pin, HIGH/LOW)` | **向输出引脚写入电平** | 按开关："开"还是"关" |
+| `digitalRead(pin)` | **从输入引脚读取电平** | 看指示灯："亮"还是"灭" |
+
+**一句话**：`pinMode()` 只执行一次（`setup()`），决定引脚的"身份"；`digitalWrite()` / `digitalRead()` 在 `loop()` 里反复执行，实际读写电平。
+
+### 三种模式
+
+| 模式 | 引脚行为 | 典型用途 |
+| --- | --- | --- |
+| `OUTPUT` | 你可以用 `digitalWrite()` 主动驱动它为 HIGH 或 LOW | 点亮 LED、控制继电器 |
+| `INPUT` | 引脚高阻抗，既不拉高也不拉低——**必须接外部上拉/下拉电阻** | 读取传感器（外部有上下拉时） |
+| `INPUT_PULLUP` | 内部启用一个 ~40–50kΩ 的上拉电阻，默认把引脚拉到 HIGH；外部接地时变为 LOW | **按键/开关的标准接法** |
+
+### 为什么按键用 `INPUT_PULLUP`？
+
+```
+内部上拉 40kΩ
+    |
+GPIO1 ----[按键]---- GND
+```
+
+- 按键**断开**时：内部上拉把 GPIO1 拉到 3.3V → `digitalRead()` 读到 **HIGH**
+- 按键**闭合**时：GPIO1 被直接连到 GND → `digitalRead()` 读到 **LOW**
+
+这就是"**低电平有效**"——按键按下是 LOW，松开是 HIGH。
+
+### 按键消抖
+
+机械按键按下瞬间，金属触点会**快速弹跳**几次（微秒级），导致 `digitalRead()` 来回跳变。软件消抖最简单：读到边沿后延时 20ms，让弹跳平息再读取。
+
+本代码用的**超简单版**（适合入门）：`delay(200)` 在按住期间只处理一次。
+
+### 运行结果
+
+- **按键松开**：GPIO1 = 3.3V，LED 灭，串口无输出
+- **按键按下**：GPIO1 = 0V，LED 亮，串口打印 `Button PRESSED`
+- **按住不放**：每 200ms 打印一次
+- **松开后**：LED 立即灭
+
+### 出了什么问题 & 如何修复
+
+- **引脚接错**：把按键接到了 3V3 而非 GND，导致逻辑反转。修复：按键一端接 GND，代码用 `INPUT_PULLUP`。
+- **LED 不亮**：长脚/短脚接反，或电阻值太大。220Ω 最保险。
+- **按键乱跳**：没加消抖，串口同一按下事件打印好几行。修复：加 `delay(20)` 以上。
 
 ---
 

@@ -9,7 +9,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`教程/`](./教程/) | Original 1–6 month article-style learning plans |
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) |
-| [`day-01/`](./day-01/) … [`day-10/`](./day-10/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-11/`](./day-11/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -131,7 +131,8 @@ robotics-engineer-learning-tutorial/
 ├── day-01/ … day-07/            ← Week 1: circuit theory & simulation
 ├── day-08/                      ← Day 8: ESP32-S3 board & toolchain setup
 ├── day-09/                      ← Day 9: first program, Blink (onboard WS2812B + external LED)
-└── day-10/                      ← Day 10: PWM breathing LED (duty-cycle brightness + two parallel tasks)
+├── day-10/                      ← Day 10: PWM breathing LED (duty-cycle brightness + two parallel tasks)
+└── day-11/                      ← Day 11: Digital input & button (INPUT_PULLUP + debounce)
 ```
 
 ---
@@ -1305,6 +1306,130 @@ Period verification used **autocorrelation**: the peak sits at lag 72 frames = *
 Potentiometer dimming **is tested and working on hardware**: the chain `analogRead()` on GPIO1 → `map()` → `ledcWrite()` is correct, and the duty at all three knob positions matches the formula exactly.
 
 **Still to do**: fix the linear `map()` changing far too fast at the low end (**gamma correction**); and take a **fixed-camera** brightness comparison (the current three are handheld, and auto-exposure inverted the ordering).
+
+---
+
+## Day 11 — Digital Input & Button
+
+> Full write-up in [`day-11/README.md`](./day-11/README.md).
+
+### Goal
+
+Days 9 and 10 were all about GPIO **output**. Day 11 flips it around — reading GPIO **input**: using a button to control an LED.
+
+Key concepts:
+- **INPUT_PULLUP**: uses the chip's internal pull-up resistor, no external resistor needed
+- **Debouncing**: the contacts bounce for microseconds when pressed, needs a 20 ms delay
+- **Edge detection**: distinguish "pressed" (FALLING) from "released" (RISING)
+
+### Wiring
+
+| Component | Connection |
+| --- | --- |
+| Button | GPIO1 → button → GND |
+| External LED | GPIO2 → 220Ω → LED anode → LED cathode → GND |
+| Onboard pixel | GPIO48 (unchanged, `RgbCycle::update()` keeps running) |
+
+Multimeter measurements:
+
+| Button state | GPIO1 voltage |
+| --- | --- |
+| Released | 3.3V (pulled up by internal resistor) |
+| Pressed | 0V (shorted to GND) |
+
+### Code
+
+Full code: [`day-11/day11.ino`](./day-11/day11.ino)
+
+```cpp
+#include <RgbCycle.h>
+
+const int BUTTON_PIN = 1;   // GPIO1 = button input
+const int LED_PIN    = 2;   // GPIO2 = external LED output
+
+void setup() {
+  RgbCycle::begin();            // pixel: init
+  RgbCycle::setInterval(800);   // pixel: 800ms per colour
+
+  pinMode(BUTTON_PIN, INPUT_PULLUP);  // enable internal pull-up, pressed = LOW
+  pinMode(LED_PIN,    OUTPUT);         // LED pin as output
+  Serial.begin(115200);
+}
+
+void loop() {
+  RgbCycle::update();   // Task A: colour cycle keeps running
+
+  int buttonState = digitalRead(BUTTON_PIN);
+  if (buttonState == LOW) {          // button pressed (pulled low)
+    digitalWrite(LED_PIN, HIGH);     // LED on
+    Serial.println("Button PRESSED");
+    delay(200);                      // simple debounce: only once per 200 ms while held
+  } else {                           // button released (pulled back to HIGH)
+    digitalWrite(LED_PIN, LOW);      // LED off
+  }
+  delay(10);
+}
+```
+
+### `pinMode()` Explained
+
+The most common beginner question: *"I wrote `pinMode()` in `setup()`, why do I still need `digitalWrite()` in `loop()`?"*
+
+`pinMode()` and `digitalWrite()` do **completely different things**:
+
+| Function | Purpose | Analogy |
+| --- | --- | --- |
+| `pinMode(pin, INPUT_PULLUP)` | **Configure the pin's role** — "is this pin an input or output?" | Label a door: "entrance" or "exit" |
+| `digitalWrite(pin, HIGH/LOW)` | **Drive an output pin to a level** | Flip a switch: "on" or "off" |
+| `digitalRead(pin)` | **Read the current level of an input pin** | Read a light: "lit" or "dark" |
+
+**One line**: `pinMode()` runs once in `setup()` and sets the pin's **identity**. `digitalWrite()` / `digitalRead()` run repeatedly in `loop()` and actually **move electrons**.
+
+### Three Modes
+
+| Mode | Pin behaviour | Typical use |
+| --- | --- | --- |
+| `OUTPUT` | You can drive it HIGH or LOW with `digitalWrite()` | LEDs, relays |
+| `INPUT` | High-impedance — neither pulls up nor down — **must have an external pull-up/down** | Sensors (when external pull is present) |
+| `INPUT_PULLUP` | Enables an internal ~40–50 kΩ pull-up resistor; pin reads HIGH by default, LOW when grounded | **Buttons / switches (standard wiring)** |
+
+### Why `INPUT_PULLUP` for a button?
+
+```
+Internal pull-up 40kΩ
+    |
+GPIO1 ----[button]---- GND
+```
+
+- Button **open**: internal pull-up pulls GPIO1 to 3.3V → `digitalRead()` returns **HIGH**
+- Button **closed**: GPIO1 is shorted to GND → `digitalRead()` returns **LOW**
+
+This is "**active-low**" — pressed = LOW, released = HIGH. The code `if (buttonState == LOW)` means "the button is being pressed".
+
+### Button Debouncing
+
+When a mechanical button is pressed, the metal contacts **bounce** rapidly for a few microseconds, so `digitalRead()` may oscillate:
+
+```
+press → HIGH→LOW→HIGH→LOW→HIGH → stable LOW
+```
+
+Software debouncing is simplest: after detecting an edge, wait 20 ms for the bouncing to settle before reading again.
+
+This sketch uses a **minimal version** (good for beginners): `delay(200)` means one print per 200 ms while held.
+
+### Results
+
+- **Released**: GPIO1 = 3.3V, LED off, no serial output
+- **Pressed**: GPIO1 = 0V, LED on, serial prints `Button PRESSED`
+- **Held**: prints every 200 ms
+- **Released again**: LED turns off immediately
+
+### What Went Wrong & How I Fixed It
+
+- **Pin wired wrong**: button on 3V3 instead of GND → logic inverted. Fix: button to GND + `INPUT_PULLUP`.
+- **LED not lighting**: anode/cathode reversed, or resistor too large (>1kΩ makes it very dim). 220Ω is safest.
+- **Button jitter**: no debounce, same press prints multiple lines. Fix: add `delay(20)` or better.
 
 ---
 
