@@ -1401,10 +1401,12 @@ Internal pull-up 40kΩ
 GPIO1 ----[button]---- GND
 ```
 
-- Button **open**: internal pull-up pulls GPIO1 to 3.3V → `digitalRead()` returns **HIGH**
-- Button **closed**: GPIO1 is shorted to GND → `digitalRead()` returns **LOW**
+- Button **open**: switch is open, GPIO1 is connected only to the internal pull-up resistor, no current path, pin is pulled to 3.3V → `digitalRead()` returns **HIGH**
+- Button **closed**: switch closes, GPIO1 is directly connected to GND through a near-zero-resistance contact (≈0.1Ω), the internal pull-up resistor is "shorted out", pin voltage ≈ 0V → `digitalRead()` returns **LOW**
 
-This is "**active-low**" — pressed = LOW, released = HIGH. The code `if (buttonState == LOW)` means "the button is being pressed".
+This is "**active-low**" — pressed = LOW, released = HIGH.
+
+**Key point**: the 40kΩ resistor is **inside the ESP32 chip**, not inside the button. The button is a pure wire switch — when pressed its two contacts touch directly, effectively "jumping over" the pull-up resistor and pulling GPIO1 straight to GND, which is why the voltage drops to 0V. The code `if (buttonState == LOW)` means "the button is being pressed".
 
 ### Button Debouncing
 
