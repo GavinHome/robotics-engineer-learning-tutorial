@@ -133,7 +133,8 @@ robotics-engineer-learning-tutorial/
 ├── day-09/                      ← Day 9: first program, Blink (onboard WS2812B + external LED)
 ├── day-10/                      ← Day 10: PWM breathing LED (duty-cycle brightness + two parallel tasks)
 ├── day-11/                      ← Day 11: Digital input & button (INPUT_PULLUP + debounce)
-└── day-12/                      ← Day 12: ADC & sensor reading (potentiometer + LDR + Serial Plotter)
+├── day-12/                      ← Day 12: ADC & sensor reading (potentiometer + LDR + Serial Plotter)
+└── day-13/                      ← Day 13: Serial communication & debugging (UART + Serial.printf + JSON output)
 ```
 
 ---
@@ -1645,8 +1646,195 @@ void loop() {
 
 ### Next Steps
 
-- **Day 13**: PWM Advanced (servo control)
+- **Day 13**: Serial Communication & Debugging (UART + Serial.printf + JSON output)
 - **Advanced**: multiple samples averaged to reduce ADC noise
+
+---
+## Day 13 — Serial Communication & Debugging
+
+> Date: 2026-09-14
+> Status: 🚧 In Progress
+>
+> Hardware: Reuse Day 12 potentiometer circuit (GPIO1 → potentiometer middle pin)
+> Core: UART communication, Serial.printf() formatted output, JSON data packaging
+
+### Goal
+
+The first 12 days focused on **hardware control** (GPIO output/input, ADC reading). Day 13 flips it around — focusing on **communicating with the computer**: sending ESP32 data over serial for debugging and logging.
+
+Core concepts:
+- **UART communication**: TX (transmit), RX (receive), baud rate
+- **Serial.printf()**: formatted output, similar to C's `printf`
+- **JSON format**: pack multiple variables into structured strings for easy parsing
+- **Arduino Serial Monitor**: receive and view serial data
+- **Debugging techniques**: use serial output to inspect intermediate values and troubleshoot
+
+### UART Communication Basics
+
+UART (Universal Asynchronous Receiver/Transmitter) is the most basic serial communication protocol.
+
+**Hardware wiring:**
+
+| Signal | Direction | Description |
+| --- | --- | --- |
+| **TX** (Transmit) | ESP32 → PC | ESP32 sends data |
+| **RX** (Receive) | PC → ESP32 | ESP32 receives data |
+| **GND** | Common ground | Must be connected, otherwise communication fails |
+
+ESP32-S3 development boards have a built-in USB-to-serial chip (CP2102/CH340). Connect via USB cable — no extra wiring needed.
+
+**Baud Rate:**
+
+| Baud Rate | Speed | Use Case |
+| --- | --- | --- |
+| 9600 | Slow | Debugging, long distance |
+| 115200 | Fast | **ESP32 default, recommended** |
+| 921600 | Very fast | Large data transfer |
+
+Key: The serial monitor baud rate must **match** the code, otherwise you see garbled text.
+
+### Common Serial Functions
+
+| Function | Purpose | Example |
+| --- | --- | --- |
+| `Serial.begin(115200)` | Initialize serial, set baud rate | Put in `setup()` |
+| `Serial.print("hello")` | Print string, no newline | Output `hellohellohello` |
+| `Serial.println("hello")` | Print string with newline | Output `hello` (each line independent) |
+| `Serial.printf("%d", 123)` | Formatted output | Output `123` |
+| `Serial.printf("Raw: %d, V: %.2fV", raw, voltage)` | Multiple variables formatted | Output `Raw: 2048, V: 1.65V` |
+
+### `printf` Format Specifiers
+
+| Specifier | Type | Example | Output |
+| --- | --- | --- | --- |
+| `%d` | Integer | `printf("%d", 123)` | `123` |
+| `%f` | Float | `printf("%f", 3.14)` | `3.140000` |
+| `%.2f` | Float (2 decimal places) | `printf("%.2f", 3.14159)` | `3.14` |
+| `%s` | String | `printf("%s", "hello")` | `hello` |
+| `%4d` | Integer (right-aligned, 4 wide) | `printf("%4d", 42)` | `__42` |
+| `\n` | Newline | `printf("line1\nline2")` | `line1`<br>`line2` |
+
+### JSON Format Output
+
+JSON (JavaScript Object Notation) is a lightweight data format using key-value pairs.
+
+**Why JSON?**
+- Structured, easy for programs to parse
+- Human-readable and debuggable
+- Cross-language (Python, JavaScript, C++ can all parse it)
+
+**Example format:**
+
+```json
+{"sensor": 2048, "voltage": 1.65}
+{"sensor": 4095, "voltage": 3.30}
+{"sensor": 0, "voltage": 0.00}
+```
+
+Each record is on its own line, separated by newlines. This is called **JSON Lines** (or NDJSON), ideal for streaming data.
+
+### Experiment 1: JSON Serial Output
+
+> Date: 2026-09-14
+> Status: 🚧 In Progress
+>
+> Hardware: Same as Day 12 Experiment 1 (GPIO1 → potentiometer middle pin, side pins to 3V3 and GND)
+
+**Circuit:** Reuse Day 12 potentiometer circuit, no new hardware needed.
+
+**Code:** [`day-13/实验1-JSON串口输出/实验1-JSON串口输出.ino`](./day-13/实验1-JSON串口输出/实验1-JSON串口输出.ino)
+
+```cpp
+#include <RgbCycle.h>
+
+const int ADC_PIN = 1;   // GPIO1 = ADC1_CH0
+
+void setup() {
+  RgbCycle::begin();
+  RgbCycle::setInterval(800);
+
+  Serial.begin(115200);
+  analogReadResolution(12);
+  analogSetAttenuation(ADC_11db);  // full 0-3.3V range
+}
+
+void loop() {
+  RgbCycle::update();
+
+  int raw = analogRead(ADC_PIN);
+  float voltage = raw * 3.3 / 4095.0;
+
+  // Output JSON format string via Serial.printf, easy for Python/browser parsing
+  Serial.printf("{\"sensor\": %d, \"voltage\": %.2f}\n", raw, voltage);
+
+  delay(1000);
+}
+```
+
+**Code explanation:**
+
+```cpp
+Serial.printf("{\"sensor\": %d, \"voltage\": %.2f}\n", raw, voltage);
+```
+
+| Part | Meaning |
+| --- | --- |
+| `"{\"sensor\": %d, \"voltage\": %.2f}\n"` | JSON format string. Note: double quotes inside JSON need `\"` escaping |
+| `%d` | Placeholder for `raw` (integer) |
+| `%.2f` | Placeholder for `voltage` (float with 2 decimal places) |
+| `\n` | Newline, each JSON record on its own line |
+| `raw, voltage` | Actual values passed to `printf` |
+
+**Escape note:** In C strings, double quote `"` is the string boundary. To represent a double quote character inside a string, escape it with backslash: `\"`. So JSON's `{"key": value}` becomes `"{\"key\": value}"` in a C string.
+
+**How to run:**
+
+1. Upload code to ESP32
+2. Open Arduino IDE → Tools → **Serial Monitor**
+3. Confirm baud rate is set to **115200**
+4. Rotate the potentiometer and observe serial output
+
+**Expected output:**
+
+```
+{"sensor": 1024, "voltage": 0.82}
+{"sensor": 2048, "voltage": 1.65}
+{"sensor": 4095, "voltage": 3.30}
+{"sensor": 0, "voltage": 0.00}
+```
+
+Each record is on one line, can be copy-pasted into a JSON parser for verification.
+
+### Parsing Serial Data with Python
+
+The JSON data from serial can be read and visualized with a Python script:
+
+```python
+import serial
+import json
+
+ser = serial.Serial('/dev/ttyUSB0', 115200)  # Linux/Mac
+# ser = serial.Serial('COM3', 115200)       # Windows
+
+while True:
+    line = ser.readline().decode('utf-8').strip()
+    if line:
+        data = json.loads(line)
+        print(f"Sensor: {data['sensor']}, Voltage: {data['voltage']}V")
+```
+
+### What Went Wrong & How to Fix
+
+- **Garbled serial output**: baud rate mismatch. Fix: confirm `Serial.begin(115200)` matches the serial monitor setting.
+- **JSON parse failure**: unescaped double quotes in the string. Fix: use `\"` instead of `"` for JSON internal quotes.
+- **No output in Serial Monitor**: USB cable is power-only. Fix: use a data-capable USB cable.
+- **No line separation between outputs**: missing `\n`. Fix: add `\n` at the end of `Serial.printf()`.
+- **JSON format error**: missing comma after value, or keys not wrapped in double quotes. Fix: check against JSON syntax.
+
+### Next Steps
+
+- **Day 14**: Week 2 Project - Digital Voltmeter (combining ADC + Serial)
+- **Advanced**: use Python + Matplotlib to plot serial data in real-time
 
 ---
 ## Learning Journal Policy
