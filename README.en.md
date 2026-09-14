@@ -1526,13 +1526,39 @@ Measured verification:
 
 Open Arduino IDE → Tools → Serial Plotter to see the voltage curve change in real-time as you rotate the potentiometer.
 
+### Experiment 2: Photoresistor (LDR) Light Sensor
+
+> Date: 2026-09-14
+> Status: ✅ Tested on hardware (strong light raw≈4095 ≈ 3.3V; covered raw≈0 ≈ 0V)
+>
+> Wiring: **3V3 → photoresistor → GPIO1 → 10kΩ → GND** (photoresistor on top, 10kΩ pull-down on bottom)
+
+**Photoresistor characteristics:**
+
+| Light condition | Resistance | Notes |
+| --- | --- | --- |
+| Strong light | ~1–10kΩ (or lower) | Low resistance |
+| Darkness | ~100kΩ–1MΩ | High resistance |
+
+**Voltage divider principle:**
+
+```
+3V3 ──[LDR]── GPIO1 ──[10kΩ]── GND
+```
+
+Formula: `Vout = 3.3V × (10k / (R_LDR + 10k))`
+
+- **Strong light**: R_LDR is very small → Vout ≈ 3.3V → raw ≈ 4095
+- **Covered/dark**: R_LDR is very large → Vout ≈ 0V → raw ≈ 0
+
+**Code:** [`day-12/实验2-光敏电阻测光照/实验2-光敏电阻测光照.ino`](./day-12/实验2-光敏电阻测光照/实验2-光敏电阻测光照.ino)
+
 ### Next Steps
 
-- **Experiment 2**: Light Dependent Resistor (LDR) voltage divider circuit, reading light intensity
+- **Day 13**: PWM Advanced (servo control)
 - **Advanced**: multiple samples averaged to reduce ADC noise
 
 ---
-
 ## Learning Journal Policy
 
 Every day's work lives in a dated folder and includes:
