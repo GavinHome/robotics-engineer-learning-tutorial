@@ -9,7 +9,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`教程/`](./教程/) | Original 1–6 month article-style learning plans |
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) |
-| [`day-01/`](./day-01/) … [`day-11/`](./day-11/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-12/`](./day-12/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -132,7 +132,8 @@ robotics-engineer-learning-tutorial/
 ├── day-08/                      ← Day 8: ESP32-S3 board & toolchain setup
 ├── day-09/                      ← Day 9: first program, Blink (onboard WS2812B + external LED)
 ├── day-10/                      ← Day 10: PWM breathing LED (duty-cycle brightness + two parallel tasks)
-└── day-11/                      ← Day 11: Digital input & button (INPUT_PULLUP + debounce)
+├── day-11/                      ← Day 11: Digital input & button (INPUT_PULLUP + debounce)
+└── day-12/                      ← Day 12: ADC & sensor reading (potentiometer + LDR + Serial Plotter)
 ```
 
 ---
@@ -1432,6 +1433,103 @@ This sketch uses a **minimal version** (good for beginners): `delay(200)` means 
 - **Pin wired wrong**: button on 3V3 instead of GND → logic inverted. Fix: button to GND + `INPUT_PULLUP`.
 - **LED not lighting**: anode/cathode reversed, or resistor too large (>1kΩ makes it very dim). 220Ω is safest.
 - **Button jitter**: no debounce, same press prints multiple lines. Fix: add `delay(20)` or better.
+
+---
+
+## Day 12 — ADC & Sensor Reading
+
+> Date: 2026-09-14
+> Status: ✅ Tested on hardware (potentiometer raw=0→4095, voltage 0V→3.3V; raw=2048 ≈ 1.65V)
+>
+> Wiring: **GPIO1 (ADC1_CH0) → potentiometer middle pin**, side pins to 3V3 and GND
+
+### Goal
+
+Day 11 was about **digital signals** (HIGH/LOW). Day 12 flips it around — reading **analog signals**: using ADC (Analog-to-Digital Converter) to turn continuous voltage into digital values.
+
+Core concepts:
+- **12-bit ADC**: ESP32-S3's ADC is 12-bit, output range 0–4095
+- **Voltage calculation**: `V = raw × 3.3 / 4095`
+- **ADC1 vs ADC2**: GPIO1–10 belong to ADC1 (recommended), GPIO11–20 belong to ADC2 (conflicts with WiFi)
+- **attenuation**: `ADC_11db` lets ADC measure the full 0–3.3V range
+- **Serial Plotter**: visualize real-time data in Arduino IDE
+
+### Hardware & Circuit
+
+| Component | Wiring | Notes |
+| --- | --- | --- |
+| Potentiometer | **3V3 → left pin**, **GND → right pin**, **GPIO1 → middle pin** | 3-pin potentiometer as voltage divider, middle pin outputs 0–3.3V |
+| External LED | GPIO2 → 2kΩ → LED → GND | Keep Day 11 wiring, `RgbCycle::update()` runs as usual |
+| Onboard RGB | GPIO48 | Keep Day 9 wiring |
+
+Potentiometer principle: fixed side pins to 3V3 and GND, rotating middle pin changes the voltage divider ratio:
+- Counter-clockwise fully: middle pin ≈ GND → 0V
+- Clockwise fully: middle pin ≈ 3V3 → 3.3V
+- Middle position: ~1.65V
+
+### Code
+
+Full code: [`day-12/实验1-电位器测电压/实验1-电位器测电压.ino`](./day-12/实验1-电位器测电压/实验1-电位器测电压.ino)
+
+```cpp
+#include <RgbCycle.h>
+
+const int ADC_PIN = 1;   // GPIO1 = ADC1_CH0
+
+void setup() {
+  RgbCycle::begin();               // RGB: initialize
+  RgbCycle::setInterval(800);      // RGB: 800ms/color
+
+  Serial.begin(115200);
+  analogReadResolution(12);        // Set ADC to 12-bit (0-4095)
+  analogSetAttenuation(ADC_11db);  // Set attenuation for 0-3.3V range
+}
+
+void loop() {
+  RgbCycle::update();              // Task A: RGB cycle runs in parallel
+
+  int raw = analogRead(ADC_PIN);
+  float voltage = raw * 3.3 / 4095.0;
+  Serial.printf("Raw: %4d  Voltage: %.2fV\n", raw, voltage);
+
+  delay(500);
+}
+```
+
+### `analogRead()` Explained
+
+| Function | Purpose |
+| --- | --- |
+| `analogReadResolution(12)` | Set ADC precision to 12-bit, range 0–4095 |
+| `analogSetAttenuation(ADC_11db)` | Set input attenuation, allows measuring 0–3.3V (default only ~0–1.1V) |
+| `analogRead(pin)` | Read raw ADC value from specified pin (0–4095) |
+
+**ADC1 vs ADC2**:
+- **ADC1** (GPIO1–10): stable, recommended for beginners
+- **ADC2** (GPIO11–20): shares with WiFi, readings are unreliable when WiFi is enabled — **avoid in early learning**
+
+### Voltage Calculation
+
+The ESP32-S3 ADC outputs a **digital value** (0–4095), which must be converted to actual voltage:
+
+```
+Voltage(V) = raw × reference_voltage / max_value
+Voltage(V) = raw × 3.3 / 4095
+```
+
+Measured verification:
+- raw = 0 → 0.00V (potentiometer fully counter-clockwise)
+- raw = 2048 → 1.65V (potentiometer at middle position)
+- raw = 4095 → 3.30V (potentiometer fully clockwise)
+
+### Serial Plotter
+
+Open Arduino IDE → Tools → Serial Plotter to see the voltage curve change in real-time as you rotate the potentiometer.
+
+### Next Steps
+
+- **Experiment 2**: Light Dependent Resistor (LDR) voltage divider circuit, reading light intensity
+- **Advanced**: multiple samples averaged to reduce ADC noise
 
 ---
 
