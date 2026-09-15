@@ -1841,7 +1841,7 @@ while True:
 ## Day 14 — Week 2 Project: Digital Voltmeter
 
 > Date: 2026-09-15
-> Status: ✅ Complete (`CAL_SCALE = 1.0055`, upload pending)
+> Status: ✅ Complete (`CAL_SCALE = 1.0055` uploaded and verified: 3V3 → 3.23V, USB 5V → 4.99V)
 >
 > Hardware: ESP32-S3 N16R8 + 10kΩ resistor + 1kΩ resistor + jumper wires
 > Core: voltage divider, ADC conversion, multi-sample averaging, factory calibration, single-point calibration
@@ -1934,9 +1934,18 @@ float vin = vPin * (R_HI + R_LO) / R_LO * CAL_SCALE;
 - Circuit: [`day-14/表笔接入3V3电路.png`](./day-14/表笔接入3V3电路.png)
 - Reading: [`day-14/表笔接入3V3读数.png`](./day-14/表笔接入3V3读数.png)
 
-**Probe on 3V3 (with 1.0538 applied)** — reads 3.49V, over-corrected:
+**Probe on 5V USB cable** — red = 5V, black = GND, black shares ground with the ESP32:
 
-- Reading: [`day-14/表笔接入3V3修正后的读数.png`](./day-14/表笔接入3V3修正后的读数.png)
+- Circuit: [`day-14/表笔接入5V的电路.png`](./day-14/表笔接入5V的电路.png)
+
+**After calibration (`CAL_SCALE = 1.0055` uploaded)** — 3V3 reads 3.23V, USB 5V reads 4.99V:
+
+- Reading: [`day-14/校准后的读数.png`](./day-14/校准后的读数.png)
+
+> ⚠️ 4.99 does **not** mean the 5V point is accurate: the USB cable's true voltage was never
+> measured, and chargers commonly output 5.1~5.2V unloaded. If it is actually 5.14V, then 4.99
+> is also −3.0% off — exactly matching 3V3. The two points don't disagree; the 5V point
+> simply proves nothing.
 
 ### Status Indicator
 
@@ -1950,21 +1959,32 @@ From Day 14 on, the onboard RGB LED stops being a "heartbeat" and becomes a **st
 
 Implementation detail: `RgbCycle::begin()` still initializes the LED, but **`RgbCycle::update()` is no longer called** (it cycles colors and would overwrite the status color). `setColor()` is called only when the status **changes**.
 
-### Calibration Result
+### Calibration Result (`CAL_SCALE = 1.0055` uploaded and verified)
 
-| Item | Value |
-|------|-------|
-| Multimeter reading of 3V3 | 3.33 V |
-| Reading before calibration | 3.31 V |
-| `CAL_SCALE` | `1.0055` |
-| Reading after calibration | ~3.33 V (expected, upload pending) |
-| **Error** | **~0% (expected)** |
+| Source | Meter reading | Multimeter truth | Error |
+|--------|---------------|------------------|-------|
+| Onboard 3V3 | 3.23 V | 3.33 V | **−3.0%** |
+| USB cable 5V | 4.99 V | not measured | unknown |
+| Probe floating | 0.00 V | 0 V | — |
 
-Pitfall: the pre-calibration reading was once mis-recorded as 3.16 V, yielding `1.0538` —
-after uploading, the meter read **3.49 V (+4.8%)**, worse than the un-calibrated −2.7%.
-The raw reading drifts between measurements (3.24 V → 3.31 V the same day), so
-**always derive the coefficient from the reading taken right now**.
-Full data and the two-point calibration plan are in [`day-14/校准记录.md`](./day-14/校准记录.md).
+⚠️ **4.99 does not mean the 5V point is accurate**: the USB cable's true voltage was never
+measured, and chargers commonly output 5.1~5.2 V unloaded. If it is actually 5.14 V, then 4.99
+is also −3.0% off — exactly matching 3V3. The two points don't disagree; the 5V point
+just proves nothing.
+
+Pitfalls:
+
+1. The pre-calibration reading was once mis-recorded as 3.16 V, yielding `1.0538` —
+   after uploading, the meter read **3.49 V (+4.8%)**, worse than the un-calibrated −2.7%.
+2. Readings drift ±1.2% (three 3V3 measurements the same day: 3.24 → 3.31 → 3.23),
+   so you must **measure simultaneously**: clamp the multimeter on the divider's VIN input
+   and read it at the same instant as the serial output.
+3. Two-point calibration `vin = a × vPin + b` is not viable yet: the fit gives `b = +0.263 V`,
+   meaning a grounded probe should read 0.26 V — contradicting the observed `adc 0 → 0.00 V`.
+
+**Conclusion: keep `1.0055` and stop tuning it. Do one simultaneous measurement next.**
+
+Full data and derivation in [`day-14/校准记录.md`](./day-14/校准记录.md).
 
 ### Error Sources & Handling
 
