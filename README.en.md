@@ -1926,15 +1926,13 @@ float vin = vPin * (R_HI + R_LO) / R_LO * CAL_SCALE;
 
 **Probe floating** — reads ~0, blue status LED:
 
-![Probe floating circuit](./day-14/表笔悬空电路.png)
-
-![Probe floating reading](./day-14/表笔悬空读数.png)
+- Circuit: [`day-14/表笔悬空电路.png`](./day-14/表笔悬空电路.png)
+- Reading: [`day-14/表笔悬空读数.png`](./day-14/表笔悬空读数.png)
 
 **Probe on 3V3** — reads ~3.2V, green status LED:
 
-![Probe on 3V3 circuit](./day-14/表笔接入3V3电路.png)
-
-![Probe on 3V3 reading](./day-14/表笔接入3V3读数.png)
+- Circuit: [`day-14/表笔接入3V3电路.png`](./day-14/表笔接入3V3电路.png)
+- Reading: [`day-14/表笔接入3V3读数.png`](./day-14/表笔接入3V3读数.png)
 
 ### Status Indicator
 
