@@ -1841,7 +1841,7 @@ while True:
 ## Day 14 — Week 2 Project: Digital Voltmeter
 
 > Date: 2026-09-15
-> Status: ✅ Complete (4.2% error after calibration)
+> Status: ✅ Complete (`CAL_SCALE = 1.0055`, upload pending)
 >
 > Hardware: ESP32-S3 N16R8 + 10kΩ resistor + 1kΩ resistor + jumper wires
 > Core: voltage divider, ADC conversion, multi-sample averaging, factory calibration, single-point calibration
@@ -1929,10 +1929,14 @@ float vin = vPin * (R_HI + R_LO) / R_LO * CAL_SCALE;
 - Circuit: [`day-14/表笔悬空电路.png`](./day-14/表笔悬空电路.png)
 - Reading: [`day-14/表笔悬空读数.png`](./day-14/表笔悬空读数.png)
 
-**Probe on 3V3** — reads ~3.2V, green status LED:
+**Probe on 3V3 (before calibration)** — reads ~3.24V, green status LED:
 
 - Circuit: [`day-14/表笔接入3V3电路.png`](./day-14/表笔接入3V3电路.png)
 - Reading: [`day-14/表笔接入3V3读数.png`](./day-14/表笔接入3V3读数.png)
+
+**Probe on 3V3 (with 1.0538 applied)** — reads 3.49V, over-corrected:
+
+- Reading: [`day-14/表笔接入3V3修正后的读数.png`](./day-14/表笔接入3V3修正后的读数.png)
 
 ### Status Indicator
 
@@ -1951,12 +1955,16 @@ Implementation detail: `RgbCycle::begin()` still initializes the LED, but **`Rgb
 | Item | Value |
 |------|-------|
 | Multimeter reading of 3V3 | 3.33 V |
-| Reading before calibration | 3.16 V |
-| `CAL_SCALE` | `1.0538` |
-| Reading after calibration | 3.19 V |
-| **Error** | **4.2%** |
+| Reading before calibration | 3.31 V |
+| `CAL_SCALE` | `1.0055` |
+| Reading after calibration | ~3.33 V (expected, upload pending) |
+| **Error** | **~0% (expected)** |
 
-Residual error comes from resistor tolerance (±5%).
+Pitfall: the pre-calibration reading was once mis-recorded as 3.16 V, yielding `1.0538` —
+after uploading, the meter read **3.49 V (+4.8%)**, worse than the un-calibrated −2.7%.
+The raw reading drifts between measurements (3.24 V → 3.31 V the same day), so
+**always derive the coefficient from the reading taken right now**.
+Full data and the two-point calibration plan are in [`day-14/校准记录.md`](./day-14/校准记录.md).
 
 ### Error Sources & Handling
 
