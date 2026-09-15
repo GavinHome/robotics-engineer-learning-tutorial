@@ -9,7 +9,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`教程/`](./教程/) | Original 1–6 month article-style learning plans |
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) |
-| [`day-01/`](./day-01/) … [`day-12/`](./day-12/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-14/`](./day-14/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -134,7 +134,8 @@ robotics-engineer-learning-tutorial/
 ├── day-10/                      ← Day 10: PWM breathing LED (duty-cycle brightness + two parallel tasks)
 ├── day-11/                      ← Day 11: Digital input & button (INPUT_PULLUP + debounce)
 ├── day-12/                      ← Day 12: ADC & sensor reading (potentiometer + LDR + Serial Plotter)
-└── day-13/                      ← Day 13: Serial communication & debugging (UART + Serial.printf + JSON output)
+├── day-13/                      ← Day 13: Serial communication & debugging (UART + Serial.printf + JSON output)
+└── day-14/                      ← Day 14: Week 2 Project - Digital voltmeter (divider + averaging + calibration)
 ```
 
 ---
@@ -1835,6 +1836,154 @@ while True:
 
 - **Day 14**: Week 2 Project - Digital Voltmeter (combining ADC + Serial)
 - **Advanced**: use Python + Matplotlib to plot serial data in real-time
+
+---
+## Day 14 — Week 2 Project: Digital Voltmeter
+
+> Date: 2026-09-15
+> Status: ✅ Complete (4.2% error after calibration)
+>
+> Hardware: ESP32-S3 N16R8 + 10kΩ resistor + 1kΩ resistor + jumper wires
+> Core: voltage divider, ADC conversion, multi-sample averaging, factory calibration, single-point calibration
+
+### Goal
+
+Turn the ESP32-S3 into a **working DC voltmeter**, tying together Day 8 (GPIO), Day 12 (ADC) and Day 13 (Serial).
+
+Key insight: ESP32 GPIOs tolerate only 0–3.3V — connecting 5V directly will destroy the pin. **The voltage divider is not optional; it is protection.**
+
+### Voltage Divider
+
+```
+   Voltage under test VIN
+        │
+    ┌───┴───┐
+    │ 10kΩ  │  R_HI
+    └───┬───┘
+        │
+        ├────────────── GPIO1 (ADC1_CH0)
+        │
+    ┌───┴───┐
+    │  1kΩ  │  R_LO
+    └───┬───┘
+        │
+       GND
+```
+
+**Formulas:**
+
+```
+V_PIN = VIN × R_LO / (R_HI + R_LO)     // voltage at GPIO1
+VIN   = V_PIN × (R_HI + R_LO) / R_LO   // recover input voltage (this line is in the code)
+```
+
+Ratio = **11**, so `VIN = V_PIN × 11`, range = 3.3 × 11 = **36.3V**.
+
+**Why 10kΩ + 1kΩ instead of the guide's 1MΩ + 100kΩ:**
+
+| Option | Equivalent source impedance | Consequence |
+|--------|---------------------------|-------------|
+| 1MΩ + 100kΩ | ≈ 91kΩ | ADC sampling cap can't charge in time → reading 5–15% low, needs a 100nF cap to patch it |
+| **10kΩ + 1kΩ** | **≈ 909Ω** | Sampling is accurate, **no capacitor needed** |
+
+Trade-off: input impedance drops from 1.1MΩ to 11kΩ. Fine for batteries and power rails.
+
+### Wiring
+
+Two resistors **in series**, sharing **one hole** in the middle column — that shared node is the divider midpoint:
+
+| Step | Action |
+|------|--------|
+| 1 | 10kΩ from col 10 → col 15; 1kΩ from **col 15** (shared midpoint) → col 20 |
+| 2 | col 15 → **GPIO1** |
+| 3 | col 20 → **GND** |
+| 4 | A wire from col 10 is your **probe** — leave it disconnected for now |
+
+⚠️ **Connect GND first, VIN last**; reverse when disconnecting. ⚠️ **Power the ESP32 first** (USB plugged in) before connecting the voltage under test.
+
+### Code
+
+[`day-14/实验1-数字电压表/实验1-数字电压表.ino`](./day-14/实验1-数字电压表/实验1-数字电压表.ino)
+
+```cpp
+// Multi-sample averaging. analogReadMilliVolts() applies the factory
+// calibration stored in eFuse — far more accurate than multiplying by 3.3.
+long sumRaw = 0;
+float sumMv = 0.0;
+for (int i = 0; i < SAMPLES; i++) {
+  sumRaw += analogRead(ADC_PIN);
+  sumMv  += analogReadMilliVolts(ADC_PIN);
+  delayMicroseconds(200);
+}
+float avg  = sumRaw / (float)SAMPLES;
+float vPin = sumMv / SAMPLES / 1000.0;
+
+// Recover the input voltage
+float vin = vPin * (R_HI + R_LO) / R_LO * CAL_SCALE;
+```
+
+### Measured Results
+
+**Probe floating** — reads ~0, blue status LED:
+
+![Probe floating circuit](./day-14/表笔悬空电路.png)
+
+![Probe floating reading](./day-14/表笔悬空读数.png)
+
+**Probe on 3V3** — reads ~3.2V, green status LED:
+
+![Probe on 3V3 circuit](./day-14/表笔接入3V3电路.png)
+
+![Probe on 3V3 reading](./day-14/表笔接入3V3读数.png)
+
+### Status Indicator
+
+From Day 14 on, the onboard RGB LED stops being a "heartbeat" and becomes a **status indicator**:
+
+| Color | Meaning |
+|-------|---------|
+| 🟢 Green | Normal, 1V ≤ VIN < 30V |
+| 🔵 Blue | VIN < 1V, reading unreliable (poor ADC linearity at the low end) |
+| 🔴 Red | VIN ≥ 30V, near/over range, dangerous |
+
+Implementation detail: `RgbCycle::begin()` still initializes the LED, but **`RgbCycle::update()` is no longer called** (it cycles colors and would overwrite the status color). `setColor()` is called only when the status **changes**.
+
+### Calibration Result
+
+| Item | Value |
+|------|-------|
+| Multimeter reading of 3V3 | 3.33 V |
+| Reading before calibration | 3.16 V |
+| `CAL_SCALE` | `1.0538` |
+| Reading after calibration | 3.19 V |
+| **Error** | **4.2%** |
+
+Residual error comes from resistor tolerance (±5%).
+
+### Error Sources & Handling
+
+| Source | Magnitude | Handling |
+|--------|-----------|----------|
+| Vref inaccuracy | ±5% | ✅ `analogReadMilliVolts()` reads factory eFuse calibration |
+| ADC noise | ±1–2 LSB | ✅ 16-sample averaging |
+| High source impedance | -5–15% | ✅ Fixed at the root by using 10kΩ + 1kΩ |
+| Resistor tolerance | ±10% | ⚠️ Single-point calibration |
+| ADC non-linearity at both ends | low/high end | ⚠️ Avoid; code flags `LOW` |
+
+### What Went Wrong & How to Fix
+
+- **Reading drops to 0 when the probe touches the 5Vin pin**: 5Vin is a power **input**, not a regulated output — it has no drive capability. A multimeter (10MΩ input) reads 4.4V, but connecting an 11kΩ load collapses the voltage to 0. Fix: use 3V3 (onboard LDO output, has drive capability) as the calibration reference.
+- **Floating reading drifts instead of 0**: 1kΩ not connected to GND, or the two resistors don't share a midpoint.
+- **Reading jumps erratically**: the source under test doesn't share GND with the ESP32.
+- **Consistent ~10% offset**: resistor tolerance — run single-point calibration.
+- **Compile error naming an enum `OK`/`LOW`**: the Arduino core already defines these as macros. Rename to `V_OK`/`V_TOO_LOW`/`V_TOO_HIGH`.
+
+### Next Steps
+
+- Cross-check with an AA battery (~1.5V) and an 18650 (3.0–4.2V)
+- Find a real 5V source (bench supply / another board) to extend the calibration point
+- Add an OLED display so the voltmeter works without a computer
+- **Day 15**: soldering safety & basic practice (Week 3 begins; soldering iron required)
 
 ---
 ## Learning Journal Policy
