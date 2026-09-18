@@ -8,8 +8,8 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 |--------|-------------|
 | [`教程/`](./教程/) | Original 1–6 month article-style learning plans |
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
-| [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) |
-| [`day-01/`](./day-01/) … [`day-14/`](./day-14/) | Daily work (screenshots, circuit files, code, notes) |
+| [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
+| [`day-01/`](./day-01/) … [`day-16/`](./day-16/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -126,7 +126,7 @@ robotics-engineer-learning-tutorial/
 ├── README.en.md                 ← English version
 ├── 教程/                        ← original 1–6 month learning plans
 ├── 进度/                        ← Month 1 day-by-day guide + glossary
-├── docs/                        ← ESP32-S3 board reference (schematic + pinout) + component photos (元器件.jpg)
+├── docs/                        ← ESP32-S3 board reference (schematic + pinout) + component photos (元器件.jpg) + 小车模块分工表.md
 ├── 元器件库存清单.md            ← parts on hand + shopping list
 ├── day-01/ … day-07/            ← Week 1: circuit theory & simulation
 ├── day-08/                      ← Day 8: ESP32-S3 board & toolchain setup
@@ -135,7 +135,9 @@ robotics-engineer-learning-tutorial/
 ├── day-11/                      ← Day 11: Digital input & button (INPUT_PULLUP + debounce)
 ├── day-12/                      ← Day 12: ADC & sensor reading (potentiometer + LDR + Serial Plotter)
 ├── day-13/                      ← Day 13: Serial communication & debugging (UART + Serial.printf + JSON output)
-└── day-14/                      ← Day 14: Week 2 Project - Digital voltmeter (divider + averaging + calibration)
+├── day-14/                      ← Day 14: Week 2 Project - Digital voltmeter (divider + averaging + calibration)
+├── day-15/                      ← Day 15: Soldering safety & basic practice (tinning + 5-step method + cold joints + continuity)
+└── day-16/                      ← Day 16: Through-hole soldering (perfboard layout + shared-hole series chain + elevated 3 mm lead bend + segment-sum self-check)
 ```
 
 ---
@@ -2009,7 +2011,199 @@ Full data and derivation in [`day-14/校准记录.md`](./day-14/校准记录.md)
 - Cross-check with an AA battery (~1.5V) and an 18650 (3.0–4.2V)
 - Find a real 5V source (bench supply / another board) to extend the calibration point
 - Add an OLED display so the voltmeter works without a computer
-- **Day 15**: soldering safety & basic practice (Week 3 begins; soldering iron required)
+---
+## Day 15 — Soldering Safety & Basic Practice
+
+> Date: 2026-09-15
+> Status: ✅ **Complete** (accepted 2026-09-16: tinning + ≥5 joints on scrap PCB + continuity check + pull test all passed)
+>
+> Hardware: 40W soldering iron kit + DT9205A PRO multimeter + scrap PCB + pin header + DuPont wires
+> Core: tip tinning → 5-step soldering → cold-joint recognition → continuity check
+> Code: none (Day 15 is pure hand work; the ESP32 stays off the bench)
+
+Full notes: [`day-15/README.md`](./day-15/README.md)
+
+**Photos**: [`焊接导线测导通.png`](./day-15/焊接导线测导通.png), [`焊接5个焊点.png`](./day-15/焊接5个焊点.png)
+
+### Goal
+
+Turn "DuPont wires that fall off when you look at them" into joints that survive vibration. This is the gateway skill for Week 3 — the robot car will shake, and a cold joint means it dies halfway across the room.
+
+Key insight: **the iron heats the pad and the lead, not the solder wire.** Melting solder on the tip and painting it on is the number one source of cold joints.
+
+### The 5-Step Method
+
+```
+① Heat the pad AND the lead (not the solder)
+      ↓
+② Feed solder at the pad/lead junction (not onto the tip)
+      ↓
+③ Solder flows and fills the pad on its own  →  remove wire first
+      ↓
+④ Then remove the iron
+      ↓
+⑤ Hold still, let it freeze (1–2 s)
+```
+
+Three things account for 90% of beginner mistakes: heat the workpiece **before** feeding solder; feed from the **opposite** side so capillary action pulls it in; use only a **grain-of-rice** amount of solder.
+
+**Three hard criteria for "how little is little"** (don't eyeball it): pull the wire away **within 1 second** of feeding / the solder edge **stays inside the pad** (a ring of bare copper remains visible) / it's a **small mound**, not a ball (the lead pokes out of the top).
+> Exception: when soldering **stranded wire**, the solder must wick through the whole bundle — noticeably more than a grain of rice, and that's correct.
+
+### Joint Self-Check
+
+| Check | Good | Bad |
+|-------|------|-----|
+| Shape | Cone / small mound | Ball / spike with a whisker |
+| Surface | **Shiny** (mirror-like) | Dull, grainy, "tofu dregs" |
+| Wetting | Solder covers the whole pad | Beaded up, piled on one side |
+| Amount | Grain of rice | Too much (near bridge) / too little (hole visible) |
+| Strength | Can't pull it off | Falls off when pulled |
+
+**Cold joints are the sneaky ones**: they look fine to the eye and only reveal themselves under a pull test or a continuity check.
+
+### Objective Test: Multimeter Continuity
+
+Switch the DT9205A PRO to continuity mode:
+
+- Across the **two ends of the same wire** → **beeps** (conducting)
+- Between this wire and an **adjacent conductor** → **silent** (insulated, no bridge)
+
+Both must pass.
+
+> ⚠️ **Ask one question before measuring**: were these two points **already connected**? If the board already has a copper trace joining them, the beep says nothing about your joint.
+> Correct order: **measure before soldering (should be silent) → measure after (beeps)** — only the before/after contrast is evidence.
+
+### Acceptance Measurements (2026-09-16)
+
+| Item | Result |
+|------|--------|
+| Joints on scrap PCB | ✅ 5–7 separate joints; shape / wetting / amount / no bridges all pass |
+| Validity of the continuity test | ✅ **The two holes were NOT connected on the bare board → connected after soldering** — rules out a pre-existing trace, proving the joint itself conducts |
+| Pull test | ✅ Light pull along the wire direction — **it does not come off** |
+| Outstanding | ⏳ Good-vs-bad (cold joint reference) photo |
+
+> 📌 General methodology: **any continuity test must first ask "was it already connected?"** Without a control measurement, a beep proves nothing. Same approach applies to Day 16 desoldering and Day 21 wiring troubleshooting.
+
+### Bonus Exercise: Deliberately Solder One Cold Joint
+
+"Shiny" vs "dull and grainy" cannot be imagined from words. How to make a bad one: press the iron on for **only 1 second** (the workpiece never reaches temperature), or **wiggle the wire while it freezes** → the solder sits on the surface as a grey, granular, tofu-dregs mess. Shoot the good and the bad side by side for the clearest comparison.
+
+### Deviations from the Guide
+
+| Guide says | This README | Why |
+|------------|-------------|-----|
+| Practice on perfboard | Use a **scrap PCB** instead | 3 perfboards are in the mail; what you're practicing is solder volume and timing, so scrap is equivalent |
+| Solder two DuPont **terminals** | Solder a **DuPont-to-DuPont splice** | No crimp terminals on hand; the splice directly produces the extension leads Day 21 needs |
+| Good-vs-bad comparison photo | Deferred | You need to know what good and bad look like before you can deliberately make a bad one — makes more sense at the end of the practice |
+
+### Next Steps
+
+- ⏳ Shoot the **good-vs-bad comparison** photo (the one guide deliverable still missing)
+- **Day 16**: through-hole soldering — 5 resistors in series on perfboard, plus desoldering practice (solder sucker)
+- Re-run the practice on a fresh perfboard once it arrives; clean copper feels noticeably easier
+
+---
+## Day 16 — Through-Hole Soldering (5 Resistors in Series)
+
+> Date: 2026-09-17
+> Status: 🟡 **In progress** (stage 1 accepted 2026-09-18: 5 resistors soldered on perfboard, **no cold joints ✅**; still pending ① >1MΩ between adjacent pads ② desoldering practice)
+>
+> Hardware: 40W soldering iron kit + DT9205A PRO multimeter + 5×7 cm double-sided perfboard + resistors 330Ω/1kΩ/2kΩ/1kΩ/220Ω
+> Core: perfboard layout → shared-hole series chain → elevated 3 mm lead bend → segment-sum self-check
+> Code: none (Day 16 is pure hand work; the ESP32 stays off the bench)
+
+Full notes: [`day-16/README.md`](./day-16/README.md)
+
+**Photos**: [`五个电阻串联焊接.png`](./day-16/五个电阻串联焊接.png) (front), [`五个电阻串联背面焊接点.png`](./day-16/五个电阻串联背面焊接点.png) (solder side)
+
+### Goal
+
+Take the solder-volume and timing skills practised on scrap PCB on Day 15 and apply them to a **real circuit**: solder a resistor series chain on perfboard and verify it in segments with the multimeter.
+
+Three acceptance criteria: ① no cold joints ✅ passed ② no shorts (>1MΩ between adjacent pads) ⏳ pending ③ neat joints ⚠️ flawed.
+
+### Perfboard ≠ Breadboard
+
+| | Breadboard | Perfboard |
+|---|-----------|-----------|
+| Inside the holes | **Copper strips** — a row of 5 holes is connected | **Every hole is an isolated pad**, connected to nothing |
+| Connected? | Yes, as soon as you plug in | No — nothing connects until **you solder it** |
+
+**So a series chain on perfboard needs no jumpers**: push two component leads into **the same hole**, wrap them in solder, and they are one electrical node.
+
+### The Shared-Hole Series Chain
+
+```
+  hole1   hole3   hole5   hole7   hole9   hole11
+   ●───────●───────●───────●───────●───────●
+   │ R1    │ R2    │ R3    │ R4    │ R5    │
+  330Ω    1kΩ     2kΩ     1kΩ     220Ω
+```
+
+Holes 3/5/7/9 each take two leads; the solder blob is the node. Zero jumpers.
+
+**Why different values**: the cumulative sum becomes unique — the number you measure tells you which link the chain is broken at. With five identical 1kΩ parts, reading 3kΩ only tells you "three are connected", not *which*.
+
+### Mounting: Elevated Lead Bend (bent 3 mm from the body) + Splayed Leads
+
+- Insert from the **component side, solder on the back**; bend each lead 90° **about 3 mm from the body** — not right against the body
+- Span = body length + 6 mm ≈ **12.5 mm ≈ 5 hole pitches** → **the two holes the leads go through are far apart**, and the body sits **elevated above the board**, not flat on it
+- About **3 mm** of lead sticks out the back — just enough to solder, so **no lead is wasted and you barely need to trim anything**
+- On the back, splay the two leads **outward 30–45°** ("splayed feet") → the part doesn't fall out when you flip the board (with this bend they already splay outward; a light nudge is enough)
+- ⚠️ **"Insert less so only 3 mm sticks out" ≠ "insert fully so 3 mm sticks out."** The former leaves the body floating a dozen mm above the board. **Insertion depth is set by where you bend the lead, not by how hard you push.**
+- ❌ For contrast: the textbook "flat horizontal ∏ bend" bends 1–2 mm from the body, spans 2 hole pitches (5.08 mm), lays the body flat on the board, and leaves 3–5 mm to trim. **Not what we used here.**
+
+### ⭐ The Segment-Sum Self-Check
+
+| Measured across | Theoretical | Measured | Verdict |
+|-----------------|-------------|----------|---------|
+| Whole chain (end ↔ end) | 4.55kΩ | **4.5kΩ** | ✅ |
+| R1+R2 | 1.33kΩ | **1.3kΩ** | ✅ |
+| R3+R4+R5 | 3.22kΩ | **3.2kΩ** | ✅ |
+
+```
+1.33k + 3.22k = 4.55k = whole chain
+1.3k  + 3.2k  = 4.5k  = measured whole chain 4.5k  ✅
+```
+
+**The two segments divide the chain with no overlap and no gap → the segment point (hole 3, the shared hole) really does conduct.** If that hole were cold, the first segment would read infinite and the second would not be 3.2k.
+
+Measuring "the whole chain is 4.5k" only proves the chain isn't broken somewhere. Adding "the segments add up to the whole" also proves the intermediate node conducts. Far stronger than a continuity beep — a beep says "connected"; a resistance value says "connected *where*".
+
+> 📌 An upgrade on the Day 15 methodology (*"every continuity test must first ask 'was it already connected?'"*): **don't measure one grand total — cut it into segments that cross-check each other.** Same approach for Day 21 wiring troubleshooting.
+
+### Joint Quality
+
+| Item | Verdict |
+|------|---------|
+| Conducting / no bridges / no cold joints | ✅ |
+| ⚠️ **Too little solder** | The outer ring of the pad is still bare copper; solder covers only the middle (standard: covers the whole pad, edge contained within the pad) |
+| ⚠️ **Elongated shape** | Solder climbed up the lead into a "pillar" instead of a "mound"; caused by feeding solder against the lead and heating too long |
+| Leads not trimmed | ✅ Deliberate — desolder and reclaim all five resistors later |
+
+To add solder: press the iron on the **pad and the base of the lead**, feed solder from the **opposite** side, and when you see it wet the whole pad on its own, remove the wire first, then the iron.
+
+### Still To Do
+
+- ⏳ **Short test**: on the 2MΩ range, adjacent pads should read >1MΩ / OL — **especially the four shared holes** (two leads plus a blob in one hole is the likeliest place for solder to creep sideways)
+- ⏳ **Desoldering practice**: remove one lead with the solder sucker and solder it back (and reclaim all five resistors while you're at it)
+
+### Deviations from the Guide
+
+| Guide says | This README | Why |
+|------------|-------------|-----|
+| 5 resistors in series on perfboard | ✅ Kept (330/1k/2k/1k/220) | Switched to **different values** so the cumulative sum is unique and locates the break |
+| ESP32-S3 header → breakout board (44 pins) | ⏭️ **Skipped** | The dev board ships with headers already soldered; re-soldering teaches nothing, and one bridge across 44 dense pins could kill the board |
+| USB Type-C → custom power board | ⏭️ **Skipped** | No Type-C receptacle purchased; it's an extension. The dev board's own USB powers everything for now |
+| Desoldering practice | ⏳ Pending | Solder sucker has arrived |
+
+> Principle: **skip any component you can skip.** Neither skipped item blocks the Day 17–21 ultrasonic / IMU / motor wiring.
+
+### Next Steps
+
+- ⏳ Short test (the four shared holes first) + desoldering practice + touch-up solder
+- **Day 17**: HC-SR04 ultrasonic sensor — wiring and ranging
 
 ---
 ## Learning Journal Policy
