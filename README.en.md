@@ -2107,7 +2107,7 @@ Both must pass.
 ## Day 16 — Through-Hole Soldering (5 Resistors in Series)
 
 > Date: 2026-09-17
-> Status: 🟡 **In progress** (stage 1 accepted 2026-09-18: 5 resistors soldered on perfboard, **no cold joints ✅**; still pending ① >1MΩ between adjacent pads ② desoldering practice)
+> Status: 🟡 **In progress** (stage 1 accepted 2026-09-18: ① no cold joints ✅ (whole chain 4.5kΩ, segments add up) ② no shorts ✅ (joint ↔ adjacent hole = OL); desoldering technique recorded, awaiting a real job; **only ③ joint finish remains ⚠️ too little solder + it climbed the lead — touch-up optional**)
 >
 > Hardware: 40W soldering iron kit + DT9205A PRO multimeter + 5×7 cm double-sided perfboard + resistors 330Ω/1kΩ/2kΩ/1kΩ/220Ω
 > Core: perfboard layout → shared-hole series chain → elevated 3 mm lead bend → segment-sum self-check
@@ -2177,17 +2177,37 @@ Measuring "the whole chain is 4.5k" only proves the chain isn't broken somewhere
 
 | Item | Verdict |
 |------|---------|
-| Conducting / no bridges / no cold joints | ✅ |
+| Conducting ✅ / no cold joints ✅ | ✅ |
+| **No shorts** | ✅ On the 2MΩ range, joint ↔ adjacent empty hole = **OL** (>2MΩ); all four shared holes checked individually |
 | ⚠️ **Too little solder** | The outer ring of the pad is still bare copper; solder covers only the middle (standard: covers the whole pad, edge contained within the pad) |
 | ⚠️ **Elongated shape** | Solder climbed up the lead into a "pillar" instead of a "mound"; caused by feeding solder against the lead and heating too long |
 | Leads not trimmed | ✅ Deliberate — desolder and reclaim all five resistors later |
 
 To add solder: press the iron on the **pad and the base of the lead**, feed solder from the **opposite** side, and when you see it wet the whole pad on its own, remove the wire first, then the iron.
 
+### Short Test (Criterion ②) ✅ Done
+
+Measured point by point on the 2MΩ range — result: **OL**.
+
+| Measured across | Should read | Measured |
+|-----------------|-------------|----------|
+| Joint ↔ adjacent empty hole (off-chain) | OL / >1MΩ | **OL** ✅ |
+| The four shared holes (3/5/7/9) ↔ surrounding empty holes | OL / >1MΩ | **OL** ✅ |
+
+> **OL = Over Load (over-range / open circuit).** The standard is >1MΩ; OL on the 2MΩ range means >2MΩ — far above it.
+>
+> ⚠️ **The same OL means opposite things on-chain vs off-chain:** OL across an **off-chain** isolated hole = ✅ no short; OL across two **on-chain** points (e.g. hole 1 ↔ hole 3, with R1 between them) = ❌ a cold/open joint — that should read about 330Ω.
+>
+> Don't grip the **metal** of both probes with your fingers while measuring insulation (your body resistance shunts in parallel and pulls OL down to 1.x MΩ); red probe goes in `VΩmA`, not the 10A jack.
+
 ### Still To Do
 
-- ⏳ **Short test**: on the 2MΩ range, adjacent pads should read >1MΩ / OL — **especially the four shared holes** (two leads plus a blob in one hole is the likeliest place for solder to creep sideways)
-- ⏳ **Desoldering practice**: remove one lead with the solder sucker and solder it back (and reclaim all five resistors while you're at it)
+- ⏳ **Touch-up solder**: improve joint shape (too little solder + it climbed the lead)
+- ⏳ **Touch-up solder** (optional): too little solder + it climbed the lead → build it back into a "mound"
+- 📌 **Desoldering**: technique recorded in `day-16/README.md` §8 — **no separate practice session**, just follow it when a real job comes up (wrong hole, reclaiming parts, Day 21 rework)
+  - One hand melts with the iron, the other sucks — **cock the plunger before heating**
+  - **Add solder to remove solder**: old solder has no flux left and flows poorly
+  - ⚠️ Never yank the lead (tears the pad off); empty the chamber while hot
 
 ### Deviations from the Guide
 
@@ -2196,13 +2216,13 @@ To add solder: press the iron on the **pad and the base of the lead**, feed sold
 | 5 resistors in series on perfboard | ✅ Kept (330/1k/2k/1k/220) | Switched to **different values** so the cumulative sum is unique and locates the break |
 | ESP32-S3 header → breakout board (44 pins) | ⏭️ **Skipped** | The dev board ships with headers already soldered; re-soldering teaches nothing, and one bridge across 44 dense pins could kill the board |
 | USB Type-C → custom power board | ⏭️ **Skipped** | No Type-C receptacle purchased; it's an extension. The dev board's own USB powers everything for now |
-| Desoldering practice | ⏳ Pending | Solder sucker has arrived |
+| Desoldering practice | 📌 **Technique recorded, no separate session** | Solder sucker has arrived; do it when a real job comes up (Day 21 rework). The five resistors stay on the board as a Day 16 record |
 
 > Principle: **skip any component you can skip.** Neither skipped item blocks the Day 17–21 ultrasonic / IMU / motor wiring.
 
 ### Next Steps
 
-- ⏳ Short test (the four shared holes first) + desoldering practice + touch-up solder
+- ⏳ Touch-up solder (optional)
 - **Day 17**: HC-SR04 ultrasonic sensor — wiring and ranging
 
 ---
