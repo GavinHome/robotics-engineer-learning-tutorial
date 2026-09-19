@@ -1648,11 +1648,6 @@ void loop() {
 
 **How to run:** Upload → close Serial Monitor → Tools → Serial Plotter → rotate the potentiometer to see the curve move.
 
-### Next Steps
-
-- **Day 13**: Serial Communication & Debugging (UART + Serial.printf + JSON output)
-- **Advanced**: multiple samples averaged to reduce ADC noise
-
 ---
 ## Day 13 — Serial Communication & Debugging
 
@@ -1835,11 +1830,6 @@ while True:
 - **No line separation between outputs**: missing `\n`. Fix: add `\n` at the end of `Serial.printf()`.
 - **JSON format error**: missing comma after value, or keys not wrapped in double quotes. Fix: check against JSON syntax.
 
-### Next Steps
-
-- **Day 14**: Week 2 Project - Digital Voltmeter (combining ADC + Serial)
-- **Advanced**: use Python + Matplotlib to plot serial data in real-time
-
 ---
 ## Day 14 — Week 2 Project: Digital Voltmeter
 
@@ -2007,11 +1997,6 @@ Full data and derivation in [`day-14/校准记录.md`](./day-14/校准记录.md)
 - **Consistent ~10% offset**: resistor tolerance — run single-point calibration.
 - **Compile error naming an enum `OK`/`LOW`**: the Arduino core already defines these as macros. Rename to `V_OK`/`V_TOO_LOW`/`V_TOO_HIGH`.
 
-### Next Steps
-
-- Cross-check with an AA battery (~1.5V) and an 18650 (3.0–4.2V)
-- Find a real 5V source (bench supply / another board) to extend the calibration point
-- Add an OLED display so the voltmeter works without a computer
 ---
 ## Day 15 — Soldering Safety & Basic Practice
 
@@ -2097,12 +2082,6 @@ Both must pass.
 | Practice on perfboard | Use a **scrap PCB** instead | 3 perfboards are in the mail; what you're practicing is solder volume and timing, so scrap is equivalent |
 | Solder two DuPont **terminals** | Solder a **DuPont-to-DuPont splice** | No crimp terminals on hand; the splice directly produces the extension leads Day 21 needs |
 | Good-vs-bad comparison photo | Deferred | You need to know what good and bad look like before you can deliberately make a bad one — makes more sense at the end of the practice |
-
-### Next Steps
-
-- ⏳ Shoot the **good-vs-bad comparison** photo (the one guide deliverable still missing)
-- **Day 16**: through-hole soldering — 5 resistors in series on perfboard, plus desoldering practice (solder sucker)
-- Re-run the practice on a fresh perfboard once it arrives; clean copper feels noticeably easier
 
 ---
 ## Day 16 — Through-Hole Soldering (5 Resistors in Series)
@@ -2221,17 +2200,11 @@ Measured point by point on the 2MΩ range — result: **OL**.
 
 > Principle: **skip any component you can skip.** Neither skipped item blocks the Day 17–21 ultrasonic / IMU / motor wiring.
 
-### Next Steps
-
-- ⏳ Touch-up solder (optional)
-- **Day 17**: HC-SR04 ultrasonic sensor — wiring and ranging
-
 ---
 ## Day 17 — HC-SR04 Ultrasonic Ranging
 
 > Date: 2026-09-18 (wiring revised 2026-09-19)
-> Status: ✅ **Running on hardware; distance comparison done** (2026-09-19): all five LED tiers hit, open-air control passed, four points off by −0.1 to −1.0 cm
-> ⏳ Pending: 10-read spread, 30 cm boundary row, 3–4 m point, confirm which pin VCC is on
+> Status: ✅ **Complete** (2026-09-19): all five LED tiers hit, open-air control passed, four points off by −0.1 to −1.0 cm; VCC confirmed on the 3V3 header
 >
 > Hardware: ESP32-S3 (N16R8) + HC-SR04 ultrasonic module (wide-voltage 3–5.5 V version)
 > Core: timing-based communication → Trig trigger / Echo pulse → speed-of-sound conversion → timeout & range checks

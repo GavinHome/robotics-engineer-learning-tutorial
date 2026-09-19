@@ -213,7 +213,6 @@ while True:
 
 ---
 
-## 九、下一步
+## 九、选做 / 进阶（指南未要求）
 
-- Day 14：第二周项目 - 数字电压表（综合运用 ADC + Serial）
-- 进阶：用 Python + Matplotlib 实时绘制串口数据曲线
+- ⏭️ **用 Python + Matplotlib 实时绘制串口数据曲线** —— Day 12 已用 Arduino 串口绘图器做过同类事，此项是换成 Python 上位机，非必需
