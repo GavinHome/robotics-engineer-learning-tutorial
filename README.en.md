@@ -1311,7 +1311,7 @@ Period verification used **autocorrelation**: the peak sits at lag 72 frames = *
 
 Potentiometer dimming **is tested and working on hardware**: the chain `analogRead()` on GPIO1 → `map()` → `ledcWrite()` is correct, and the duty at all three knob positions matches the formula exactly.
 
-**Still to do**: fix the linear `map()` changing far too fast at the low end (**gamma correction**); and take a **fixed-camera** brightness comparison (the current three are handheld, and auto-exposure inverted the ordering).
+> 📌 `map()` is linear while human brightness perception is not — the low end of the knob feels too fast, left to gamma correction (see the day-10 notes).
 
 ---
 
@@ -2067,7 +2067,6 @@ Both must pass.
 | Joints on scrap PCB | ✅ 5–7 separate joints; shape / wetting / amount / no bridges all pass |
 | Validity of the continuity test | ✅ **The two holes were NOT connected on the bare board → connected after soldering** — rules out a pre-existing trace, proving the joint itself conducts |
 | Pull test | ✅ Light pull along the wire direction — **it does not come off** |
-| Outstanding | ⏳ Good-vs-bad (cold joint reference) photo |
 
 > 📌 General methodology: **any continuity test must first ask "was it already connected?"** Without a control measurement, a beep proves nothing. Same approach applies to Day 16 desoldering and Day 21 wiring troubleshooting.
 
@@ -2081,7 +2080,7 @@ Both must pass.
 |------------|-------------|-----|
 | Practice on perfboard | Use a **scrap PCB** instead | 3 perfboards are in the mail; what you're practicing is solder volume and timing, so scrap is equivalent |
 | Solder two DuPont **terminals** | Solder a **DuPont-to-DuPont splice** | No crimp terminals on hand; the splice directly produces the extension leads Day 21 needs |
-| Good-vs-bad comparison photo | Deferred | You need to know what good and bad look like before you can deliberately make a bad one — makes more sense at the end of the practice |
+| Good-vs-bad comparison photo | In progress | You need to know what good and bad look like before you can deliberately make a bad one — makes more sense at the end of the practice |
 
 ---
 ## Day 16 — Through-Hole Soldering (5 Resistors in Series)
@@ -2101,7 +2100,7 @@ Full notes: [`day-16/README.md`](./day-16/README.md)
 
 Take the solder-volume and timing skills practised on scrap PCB on Day 15 and apply them to a **real circuit**: solder a resistor series chain on perfboard and verify it in segments with the multimeter.
 
-Three acceptance criteria: ① no cold joints ✅ passed ② no shorts (>1MΩ between adjacent pads) ⏳ pending ③ neat joints ⚠️ flawed.
+Three acceptance criteria: ① no cold joints ✅ passed ② no shorts (>1MΩ between adjacent pads) ✅ passed ③ neat joints ⚠️ flawed — too little solder, it climbed the lead.
 
 ### Perfboard ≠ Breadboard
 
@@ -2180,14 +2179,13 @@ Measured point by point on the 2MΩ range — result: **OL**.
 >
 > Don't grip the **metal** of both probes with your fingers while measuring insulation (your body resistance shunts in parallel and pulls OL down to 1.x MΩ); red probe goes in `VΩmA`, not the 10A jack.
 
-### Still To Do
+### Desoldering Technique
 
-- ⏳ **Touch-up solder**: improve joint shape (too little solder + it climbed the lead)
-- ⏳ **Touch-up solder** (optional): too little solder + it climbed the lead → build it back into a "mound"
-- 📌 **Desoldering**: technique recorded in `day-16/README.md` §8 — **no separate practice session**, just follow it when a real job comes up (wrong hole, reclaiming parts, Day 21 rework)
-  - One hand melts with the iron, the other sucks — **cock the plunger before heating**
-  - **Add solder to remove solder**: old solder has no flux left and flows poorly
-  - ⚠️ Never yank the lead (tears the pad off); empty the chamber while hot
+Follow this when a real job comes up (wrong hole, reclaiming parts, Day 21 rework) — no separate practice session.
+
+- One hand melts with the iron, the other sucks — **cock the plunger before heating**
+- **Add solder to remove solder**: old solder has no flux left and flows poorly
+- ⚠️ Never yank the lead (tears the pad off); empty the chamber while hot
 
 ### Deviations from the Guide
 
@@ -2203,14 +2201,12 @@ Measured point by point on the 2MΩ range — result: **OL**.
 ---
 ## Day 17 — HC-SR04 Ultrasonic Ranging
 
-> Date: 2026-09-18 (wiring revised 2026-09-19)
-> Status: ✅ **Complete** (2026-09-19): all five LED tiers hit, open-air control passed, four points off by −0.1 to −1.0 cm; VCC confirmed on the 3V3 header
+> Date: 2026-09-18
+> Status: ✅ **Complete** (2026-09-19): all five LED tiers hit, open-air control passed, four points off by −0.1 to −1.0 cm
 >
 > Hardware: ESP32-S3 (N16R8) + HC-SR04 ultrasonic module (wide-voltage 3–5.5 V version)
 > Core: timing-based communication → Trig trigger / Echo pulse → speed-of-sound conversion → timeout & range checks
 > Code: [`实验1-超声波测距.ino`](./day-17/实验1-超声波测距/实验1-超声波测距.ino)
->
-> ⚠️ **2026-09-19 wiring revision**: VCC changed from the previously written "5 V" to **3V3** (see the wiring section below)
 
 Full notes: [`day-17/README.md`](./day-17/README.md)
 
@@ -2285,9 +2281,8 @@ LED colour keeps the Day 14 status convention: red (<30 cm) / orange (30–150 c
 
 ✅ **All five LED tiers match** the code thresholds. <br>
 ✅ **Row 5 — the mandatory control — passed**: open air reports TIMEOUT rather than a plausible number, proving rows 1–4 measured real echoes. <br>
-✅ **The 3V3 supply choice holds**: 173 cm still reads reliably, so there is no need to fall back to the "5 V + divider" plan (VCC confirmed on the 3V3 header). <br>
-⚠️ **Readings skew low systematically** — all four points are negative (−0.1 to −1.0 cm), so this is not jitter. Main cause: room-temperature sound speed (~346 m/s) exceeds the 343 m/s used in the code, about −0.87% in theory; an offset in the measurement origin contributes too. Day 21 only asks "is something there?", so a sub-1 cm bias is irrelevant — **recorded, not compensated**. <br>
-⏳ **Pending**: spread over 10 consecutive reads, the 30 cm boundary row, and a 3–4 m point.
+✅ **The 3V3 supply choice holds**: 173 cm still reads reliably, so there is no need to fall back to the "5 V + divider" plan. <br>
+⚠️ **Readings skew low systematically** — all four points are negative (−0.1 to −1.0 cm), so this is not jitter. Main cause: room-temperature sound speed (~346 m/s) exceeds the 343 m/s used in the code, about −0.87% in theory; an offset in the measurement origin contributes too. Day 21 only asks "is something there?", so a sub-1 cm bias is irrelevant — **recorded, not compensated**.
 
 ### Deviations from the Guide
 
@@ -2301,8 +2296,6 @@ LED colour keeps the Day 14 status convention: red (<30 cm) / orange (30–150 c
 
 ### Next Steps
 
-- ⏳ Ten consecutive reads at one distance; record the spread (expect ±0.3 cm)
-- ⏳ The 30 cm boundary row; a 3–4 m point (needed to separate the temperature term from the origin offset)
 - **Day 18**: MPU-6050 IMU (I2C) — ⚠️ install Adafruit MPU6050 + BusIO + Unified Sensor libraries first; module arrived 2026-09-19
 
 ---
@@ -2315,6 +2308,8 @@ Every day's work lives in a dated folder and includes:
 3. **Test results** (measured values, oscilloscope captures, serial logs)
 4. **What went wrong & how I fixed it** — the most important section
 5. **References** (datasheets, tutorial links, forum threads that helped)
+
+> 📌 Test for whether a line belongs here: **is it about what I learned, or about how this document was edited?** Only the former does.
 
 ---
 
