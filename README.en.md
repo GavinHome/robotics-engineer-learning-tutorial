@@ -2304,7 +2304,7 @@ LED colour keeps the Day 14 status convention: red (<30 cm) / orange (30–150 c
 > Hardware: ESP32-S3 (N16R8) + MPU-6050 breakout (onboard LDO + pull-ups) + 4 female-to-female jumpers
 > Core idea: bus communication → addressing → register reads → accel/angular rate → recover attitude
 > Code: [`I2C扫描.ino`](./day-18/实验1-I2C扫描/实验1-I2C扫描.ino) | [`IMU读数.ino`](./day-18/实验2-IMU读数/实验2-IMU读数.ino)
-> Captures: [`实验1-I2C扫描.png`](./day-18/实验1-I2C扫描.png) | [`实验2-IMU读数.png`](./day-18/实验2-IMU读数.png)
+> Captures: [`实验1-I2C扫描.png`](./day-18/实验1-I2C扫描.png) | [`实验2-IMU读数.png`](./day-18/实验2-IMU读数.png) | [`实验2-IMU读数2.png`](./day-18/实验2-IMU读数2.png) | [`实验2-IMU读数3.png`](./day-18/实验2-IMU读数3.png)
 
 Full notes: [`day-18/README.md`](./day-18/README.md)
 
@@ -2393,6 +2393,48 @@ Stood on edge reads 89.5°, and past 90° it still reports 97.6° — `atan` wou
 The vector still points almost straight along Z (roll/pitch only 3°), so this is **not** a levelling problem — tilting shrinks `az` but leaves the magnitude at 9.81. The magnitude itself is 2 m/s² short, which is a **sensitivity calibration error**, typical of a ¥13.80 breakout. Calibration factor `9.81 / 7.83 = 1.253`.
 
 > 📌 This is exactly why the sanity check must read the **magnitude, not one axis**: `az=7.8` alone invites the wrong conclusion ("not level"); the magnitude separates "wrong direction" from "wrong scale".
+
+### The obvious objection: `az` moves when I shake it, so how can it be wrong?
+
+A gain error is **multiplicative** — it scales the varying part too, so it never pins a reading in place. At rest `az=7.83` means a true 9.81; the motion frame `az=10.56` means a true `10.56 / 0.798 = 13.2`, well inside what hand shaking produces.
+
+The motion frames span `|a| = 5.63 ~ 10.85`, and the maximum **exceeds 9.81** — a broken sensor or a fabricated reading could never produce a value above gravity. Two independent facts:
+
+```
+responds correctly ✅ (follows attitude and motion, with plausible amplitudes)
+absolute scale ✗     (everything sits 20.2% low)
+```
+
+Quantitative check: the two runs sat at different angles (`pitch` −3.0° and −5.5°, two hours apart), and one factor k = 0.798 explains both to two decimals:
+
+| Run | true ax / az | × 0.798 | measured |
+|---|---|---|---|
+| 13:01 (pitch −3.0°) | 0.514 / 9.796 | 0.410 / 7.817 | 0.41 / 7.82 |
+| 15:01 (pitch −5.5°) | 0.940 / 9.766 | 0.750 / 7.793 | 0.75 / 7.83 |
+
+Pure gain error, not a stuck reading.
+
+> 📌 Analogy: a ruler whose markings are printed 20% short. Measuring a table and a chair gives two different numbers, but both are 20% small. The test is to **measure something of known length**, not to check whether the number moves.
+
+### Shaking up and down: the peaks reach 9.8, the average still does not
+
+Vertical shaking is symmetric, so its linear acceleration averages to zero. The mean `az` over 25 frames must therefore equal the resting value for that tilt angle.
+
+| | 值 |
+|---|---|
+| 平均 pitch | −14.0° |
+| 平均 az | **7.73** |
+| 增益模型预测（`0.798 × 9.81 × cos14°`） | **7.60** |
+| 若无增益误差应为 | 9.52 |
+
+模型与实测差 1.7%。至于那些冲到 `9.79 / 9.88 / 10.04 / 10.26` 的帧 —— 那是下落到最低点后**向上减速**的瞬间，向上加速度约 `3.3 m/s²`：
+
+```
+az = 10.26 → true Z specific force = 10.26 / 0.798 = 12.86
+12.86 − 9.52 (gravity component at that tilt) = +3.34 m/s² upward
+```
+
+**The peaks come from acceleration, not from accurate static readings.** The average is the test, and the average is still 20% low.
 
 ### Gyro drift now has a number
 
