@@ -9,7 +9,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`教程/`](./教程/) | Original 1–6 month article-style learning plans |
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
-| [`day-01/`](./day-01/) … [`day-16/`](./day-16/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-17/`](./day-17/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -137,7 +137,8 @@ robotics-engineer-learning-tutorial/
 ├── day-13/                      ← Day 13: Serial communication & debugging (UART + Serial.printf + JSON output)
 ├── day-14/                      ← Day 14: Week 2 Project - Digital voltmeter (divider + averaging + calibration)
 ├── day-15/                      ← Day 15: Soldering safety & basic practice (tinning + 5-step method + cold joints + continuity)
-└── day-16/                      ← Day 16: Through-hole soldering (perfboard layout + shared-hole series chain + elevated 3 mm lead bend + segment-sum self-check)
+├── day-16/                      ← Day 16: Through-hole soldering (perfboard layout + shared-hole series chain + elevated 3 mm lead bend + segment-sum self-check)
+└── day-17/                      ← Day 17: HC-SR04 ultrasonic ranging (Trig/Echo timing + pulseIn + speed-of-sound conversion)
 ```
 
 ---
@@ -2224,6 +2225,112 @@ Measured point by point on the 2MΩ range — result: **OL**.
 
 - ⏳ Touch-up solder (optional)
 - **Day 17**: HC-SR04 ultrasonic sensor — wiring and ranging
+
+---
+## Day 17 — HC-SR04 Ultrasonic Ranging
+
+> Date: 2026-09-18 (wiring revised 2026-09-19)
+> Status: ✅ **Running on hardware; distance comparison done** (2026-09-19): all five LED tiers hit, open-air control passed, four points off by −0.1 to −1.0 cm
+> ⏳ Pending: 10-read spread, 30 cm boundary row, 3–4 m point, confirm which pin VCC is on
+>
+> Hardware: ESP32-S3 (N16R8) + HC-SR04 ultrasonic module (wide-voltage 3–5.5 V version)
+> Core: timing-based communication → Trig trigger / Echo pulse → speed-of-sound conversion → timeout & range checks
+> Code: [`实验1-超声波测距.ino`](./day-17/实验1-超声波测距/实验1-超声波测距.ino)
+>
+> ⚠️ **2026-09-19 wiring revision**: VCC changed from the previously written "5 V" to **3V3** (see the wiring section below)
+
+Full notes: [`day-17/README.md`](./day-17/README.md)
+
+### Principle
+
+Trig gets a **≥10 μs high pulse** → the module emits eight 40 kHz bursts → **Echo goes high, drops when the echo returns**. The distance is encoded in the **width** of that Echo high:
+
+```
+distance cm = duration(μs) / 58 = duration(μs) × 0.0343 / 2
+```
+
+0.0343 cm/μs is the speed of sound (343 m/s); divide by 2 because the pulse travels there and back. Easier to remember: **58 μs ≈ 1 cm**.
+
+Range 2–400 cm, detection cone about **15°** (not a straight line — which is exactly why Day 20 puts the sensor on an SG90 to sweep left and right).
+
+### Wiring
+
+| HC-SR04 | ESP32-S3 |
+|---------|----------|
+| VCC | **3V3** (either of the two 3V3 pins) |
+| GND | GND (**must be common**) |
+| Trig | **GPIO4** |
+| Echo | **GPIO5** (direct, no divider) |
+
+Not the guide's GPIO5/18: 4/5 sit adjacent on the header, and it keeps clear of GPIO8/9 planned for I2C on Day 18.
+
+**Order**: GND first → Trig/Echo → VCC last; reverse when unplugging.
+
+### ⚠️ Why 3V3, not 5Vin / 5 V
+
+Reading `docs/ESP32-S3-Metric.pdf` suggests the board only has `5Vin` and no 5 V. **Careful: that PDF is a mechanical drawing** — it contains only part designators (`PAU4024` / `PAJ102` / `PARGB01`) and dimensions (25.40 / 27.94 / 43.18 mm). Searching it for `5V` / `3V3` / `VIN` / `GND` gives **zero hits**, so it cannot define pin functions. The real net names live in the schematic `docs/ESP32-S3-SCH.pdf`: `VBUS` / `5V` / `3V3` / `VDD33` / `GND`.
+
+And **the "in" in `5Vin` means input** — it is the supply entry into the board, not a regulated output. **This project already hit that trap on Day 14** (see the pitfalls note): a multimeter reads 4.4 V on 5Vin, but connecting an 11 kΩ load collapses the voltage to 0. The HC-SR04 draws tens of mA when it transmits, which would brown out the whole board.
+
+| Pin | Nature | Can it power the HC-SR04? |
+|-----|--------|---------------------------|
+| **3V3** | On-board LDO **output** (~1 A) | ✅ **Use this** |
+| **5Vin** | Power **input** | ❌ No drive capability, collapses |
+| 5 V header | Usually tied to VBUS | ⚠️ Works, but see below |
+
+3V3 has an extra payoff: **the wide-voltage HC-SR04's Echo high follows VCC**, so at 3V3 the Echo is 3.3 V and wires straight to GPIO5 — **no 1kΩ+2kΩ divider at all**, sidestepping the guide's "5 V into GPIO will burn it" warning entirely. If you insist on 5 V, Echo outputs 5 V and a divider becomes mandatory.
+
+The cost is slightly lower transmit power, so the long-range limit is theoretically a bit shorter — the measurement table will show how far 3.3 V actually reaches. If it falls short, switch to the 5 V header plus a divider.
+
+### Code highlights
+
+```cpp
+digitalWrite(TRIG_PIN, LOW);  delayMicroseconds(2);   // clean rising edge
+digitalWrite(TRIG_PIN, HIGH); delayMicroseconds(10);  // datasheet: ≥10 μs
+digitalWrite(TRIG_PIN, LOW);
+return pulseIn(ECHO_PIN, HIGH, 30000);   // blocks for the high pulse; 0 on timeout
+```
+
+`pulseIn()` is today's new function. **It returns 0 on timeout** (not −1), so the failure test is `duration == 0`.
+⚠️ It **blocks** for up to 30 ms — fine today, but on Day 21 the car has to run motors + servo + ranging at once, so it needs a non-blocking rewrite. Noted.
+
+LED colour keeps the Day 14 status convention: red (<30 cm) / orange (30–150 cm) / green (>150 cm) / blue (timeout). Enum again avoids the `LOW`/`HIGH` macros: `D_NEAR`/`D_MID`/`D_FAR`/`D_INVALID`.
+
+### Build
+
+✅ Compiles (316,424 bytes / 24% flash).
+
+### Measurements (first pass, 2026-09-19)
+
+| # | Scene | True (ruler) | Serial cm | Error | zone / LED |
+|---|-------|--------------|-----------|-------|------------|
+| 1 | Hand | 6.7 | 6.5 | −0.2 | 🔴 NEAR ✅ |
+| 2 | Book | 20.2 | 20.0 | −0.2 | 🔴 NEAR ✅ |
+| 3 | Book | 50.1 | 50.0 | −0.1 | 🟠 MID ✅ |
+| 4 | Distant target | 174.0 | 173.0 | −1.0 | 🟢 FAR ✅ |
+| 5 | **Open air, no target** | — | 0 | — | 🔵 TIMEOUT ✅ |
+
+✅ **All five LED tiers match** the code thresholds. <br>
+✅ **Row 5 — the mandatory control — passed**: open air reports TIMEOUT rather than a plausible number, proving rows 1–4 measured real echoes. <br>
+✅ **The 3V3 supply choice holds**: 173 cm still reads reliably, so there is no need to fall back to the "5 V + divider" plan (VCC confirmed on the 3V3 header). <br>
+⚠️ **Readings skew low systematically** — all four points are negative (−0.1 to −1.0 cm), so this is not jitter. Main cause: room-temperature sound speed (~346 m/s) exceeds the 343 m/s used in the code, about −0.87% in theory; an offset in the measurement origin contributes too. Day 21 only asks "is something there?", so a sub-1 cm bias is irrelevant — **recorded, not compensated**. <br>
+⏳ **Pending**: spread over 10 consecutive reads, the 30 cm boundary row, and a 3–4 m point.
+
+### Deviations from the Guide
+
+| Guide says | This README | Why |
+|------------|-------------|-----|
+| Trig→GPIO5, Echo→GPIO18 | **GPIO4 / GPIO5** instead | Adjacent on the header; keeps clear of Day 18 I2C |
+| "Level shifting required" / VCC→5 V | **VCC→3V3, no divider** | 5Vin is an input with no drive capability (Day 14 trap); Echo at 3.3 V is directly safe |
+| Output: measurements + timing diagram | ✅ Data filled in, diagram drawn | See the table above and [`day-17/时序图.png`](./day-17/时序图.png) |
+
+**Timing diagram**: [`day-17/时序图.png`](./day-17/时序图.png)
+
+### Next Steps
+
+- ⏳ Ten consecutive reads at one distance; record the spread (expect ±0.3 cm)
+- ⏳ The 30 cm boundary row; a 3–4 m point (needed to separate the temperature term from the origin offset)
+- **Day 18**: MPU-6050 IMU (I2C) — ⚠️ install Adafruit MPU6050 + BusIO + Unified Sensor libraries first; module arrived 2026-09-19
 
 ---
 ## Learning Journal Policy
