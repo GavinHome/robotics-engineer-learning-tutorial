@@ -9,7 +9,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`教程/`](./教程/) | Original 1–6 month article-style learning plans |
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
-| [`day-01/`](./day-01/) … [`day-17/`](./day-17/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-18/`](./day-18/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -139,6 +139,7 @@ robotics-engineer-learning-tutorial/
 ├── day-15/                      ← Day 15: Soldering safety & basic practice (tinning + 5-step method + cold joints + continuity)
 ├── day-16/                      ← Day 16: Through-hole soldering (perfboard layout + shared-hole series chain + elevated 3 mm lead bend + segment-sum self-check)
 └── day-17/                      ← Day 17: HC-SR04 ultrasonic ranging (Trig/Echo timing + pulseIn + speed-of-sound conversion)
+└── day-18/                      ← Day 18: MPU-6050 IMU over I2C (bus addressing + accel/gyro + tilt from gravity)
 ```
 
 ---
@@ -2294,9 +2295,129 @@ LED colour keeps the Day 14 status convention: red (<30 cm) / orange (30–150 c
 
 **Timing diagram**: [`day-17/时序图.png`](./day-17/时序图.png)
 
+---
+## Day 18 — MPU-6050 IMU & I2C
+
+> Date: 2026-09-19
+> Status: ✅ **Bench-tested, both experiments pass**
+>
+> Hardware: ESP32-S3 (N16R8) + MPU-6050 breakout (onboard LDO + pull-ups) + 4 female-to-female jumpers
+> Core idea: bus communication → addressing → register reads → accel/angular rate → recover attitude
+> Code: [`I2C扫描.ino`](./day-18/实验1-I2C扫描/实验1-I2C扫描.ino) | [`IMU读数.ino`](./day-18/实验2-IMU读数/实验2-IMU读数.ino)
+> Captures: [`实验1-I2C扫描.png`](./day-18/实验1-I2C扫描.png) | [`实验2-IMU读数.png`](./day-18/实验2-IMU读数.png)
+
+Full notes: [`day-18/README.md`](./day-18/README.md)
+
+### From Timing to Bus
+
+| | Day 17 ultrasonic | Day 18 IMU |
+|---|---|---|
+| Medium | **Timing**: pulse width encodes distance | **Bus**: two wires converse by address + register |
+| Multiple devices? | ❌ one device per line | ✅ many share SDA/SCL, told apart by address |
+
+Two details worth keeping: ① addresses are **7 bits**, the 8th bit is read/write direction — you write `0x68` and the library does the shifting; ② every byte must be acknowledged by the receiver pulling SDA low (**ACK**), which is exactly how the scanner decides whether anyone lives at an address.
+
+⚠️ I2C is **open-drain**: pins can only pull low, never drive high, so pull-up resistors hold the line idle-high — **no pull-ups means no ACK, ever**. The MPU-6050 breakout ships with 4.7 kΩ pull-ups, so this project needs zero extra parts. When wiring a bare chip (not a module) you must add them yourself.
+
+### Wiring
+
+| MPU-6050 | ESP32-S3 |
+|----------|----------|
+| VCC | **3V3** (breakout has its own LDO; **not 5 V** — its pull-ups would then sit above the 3.3 V IO limit) |
+| GND | GND (**must be common**) |
+| SDA | **GPIO8** |
+| SCL | **GPIO9** |
+
+Order: GND first → then SDA/SCL → VCC last. Reverse it when unplugging.
+
+The ESP32-S3 has **no fixed I2C pins** — any GPIO can be routed as SDA/SCL via `Wire.begin(SDA, SCL)`. That differs completely from AVR (the Uno's A4/A5 are hard-wired). But avoid the **strapping pins 0 / 3 / 45 / 46**: their level is sampled at boot to select the startup mode, and a module hanging off them can skew it. Day 17's choice of GPIO4/5 already left today's 8/9 free.
+
+### Why the Accelerometer Reads 9.8 at Rest
+
+An accelerometer sitting on a desk does **not** measure gravity — it measures the table's normal force, equal to gravity and pointing up. What it actually senses is *not falling*. Flat ⇒ `az ≈ 9.8`, and that is the fastest sanity check for whether the readings are right. In free fall it reads 0.
+
+The harder check is the **magnitude**: `|a| = √(ax²+ay²+az²)` must stay 9.81 at rest regardless of orientation. Looking only at `az` cannot tell "not level" from "wrong scale" — the magnitude splits the two cleanly.
+
+### Recovering Tilt from Gravity
+
+```cpp
+float roll  = atan2(a.acceleration.y, a.acceleration.z) * 180.0 / M_PI;
+float pitch = atan2(-a.acceleration.x,
+                    sqrt(a.acceleration.y * a.acceleration.y +
+                         a.acceleration.z * a.acceleration.z)) * 180.0 / M_PI;
+```
+
+Two traps: ① **use `atan2`, not `atan`** — `atan` spans only ±90° and loses the sign, `atan2` covers all four quadrants out to ±180°; ② pitch's denominator must be the **YZ vector magnitude** — the lazy `atan2(-ax, az)` goes wrong once roll gets large.
+
+> 📌 This holds **only at rest or constant velocity**: any extra linear acceleration superposes onto gravity and the "tilt" becomes fiction. That is exactly why the gyroscope has to be fused in.
+
+### The Two Sensors Trade Off
+
+| | Accurate long-term | Vibration-proof | Drifts |
+|---|---|---|---|
+| Accel-derived angle | ✅ always points "down" | ❌ jumps when shaken | no |
+| Integrated gyro | ❌ error accumulates | ✅ immune to linear accel | **yes** (`gz` is not exactly 0 even at rest) |
+
+Neither works alone. **Complementary and Kalman filters** are the engineering answer, and both are out of scope today. Per the guide, this day uses the accelerometer alone for tilt; gyro data is read and printed to get a feel for the magnitudes.
+
+> ⚠️ Gyro units are **rad/s, not °/s** — multiply by `180/π` for degrees per second.
+
+### Build
+
+✅ Both pass (`--fqbn esp32:esp32:esp32s3`): I2C scanner 339664 bytes / 25%, IMU reader 350632 bytes / 26%.
+
+Dependency chain: `Adafruit MPU6050` (2.2.9) → `Adafruit BusIO` (1.17.4) + `Adafruit Unified Sensor` (1.1.15). Missing any one of them breaks the build.
+
+### Measurements
+
+**Scanner**: 7 consecutive rounds from 12:25:42 to 12:26:00, every one landing `found 0x68 = MPU-6050 (AD0=GND)` with `1 device(s) found.`, LED green.
+
+**IMU**: `MPU6050 ready. SDA=GPIO8 SCL=GPIO9`, all three tilt zones triggered, LED followed correctly.
+
+Ten frames averaged at rest: `ax=0.41, ay=-0.07, az=7.82`, `roll=-0.6°, pitch=-3.0°`.
+Hand-tilted frames show what `atan2` buys:
+
+| ax | ay | az | roll | pitch |
+|---|---|---|---|---|
+| 2.26 | **9.21** | **0.08** | **89.5°** | −13.8° |
+| 1.87 | **9.45** | **−1.26** | **97.6°** | −11.1° |
+
+Stood on edge reads 89.5°, and past 90° it still reports 97.6° — `atan` would have failed there.
+
+### ⚠️ Sanity check failed: az = 7.82, not 9.8
+
+```
+|a| = √(0.41² + 0.07² + 7.82²) = 7.83 m/s²    vs. 9.81 reference → −20.2%
+```
+
+The vector still points almost straight along Z (roll/pitch only 3°), so this is **not** a levelling problem — tilting shrinks `az` but leaves the magnitude at 9.81. The magnitude itself is 2 m/s² short, which is a **sensitivity calibration error**, typical of a ¥13.80 breakout. Calibration factor `9.81 / 7.83 = 1.253`.
+
+> 📌 This is exactly why the sanity check must read the **magnitude, not one axis**: `az=7.8` alone invites the wrong conclusion ("not level"); the magnitude separates "wrong direction" from "wrong scale".
+
+### Gyro drift now has a number
+
+Zero offset at rest: `gx=-0.028, gy=0.030, gz=-0.009 rad/s` (≈ −1.6 / 1.7 / −0.5 °/s). Running `gy` through the arithmetic:
+
+```
+0.030 rad/s × 30 s = 0.9 rad ≈ 52°
+```
+
+**Leave it still for 30 s and pure gyro integration wanders 52°.** "Integration drifts" stops being a slogan and becomes a number — and the reason the accelerometer has to be fused back in.
+
+### The trap: experiment 2 said `not found` while experiment 1 found 0x68 on the same wires
+
+The cause was a **jumper that was not seated all the way**. The part worth recording is why the scanner still passed:
+
+| | Transactions | Effect of one failure |
+|---|---|---|
+| Scanner | one independent write per address | that address is missed; the next round hits it again |
+| `mpu.begin()` | address probe + WHO_AM_I read, back to back | one dropped frame fails the whole `begin()` |
+
+**"The scanner found it" does not mean the contact is reliable** — the scanner only needs occasional success, the library needs unbroken success. So reseat the wires before touching the code.
+
 ### Next Steps
 
-- **Day 18**: MPU-6050 IMU (I2C) — ⚠️ install Adafruit MPU6050 + BusIO + Unified Sensor libraries first; module arrived 2026-09-19
+- **Day 19**: DC motors with the TB6612FNG driver (H-bridge, direction reversal, PWM speed control)
 
 ---
 ## Learning Journal Policy
