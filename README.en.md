@@ -9,7 +9,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`教程/`](./教程/) | Original 1–6 month article-style learning plans |
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
-| [`day-01/`](./day-01/) … [`day-18/`](./day-18/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-19/`](./day-19/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -140,6 +140,7 @@ robotics-engineer-learning-tutorial/
 ├── day-16/                      ← Day 16: Through-hole soldering (perfboard layout + shared-hole series chain + elevated 3 mm lead bend + segment-sum self-check)
 └── day-17/                      ← Day 17: HC-SR04 ultrasonic ranging (Trig/Echo timing + pulseIn + speed-of-sound conversion)
 └── day-18/                      ← Day 18: MPU-6050 IMU over I2C (bus addressing + accel/gyro + tilt from gravity)
+└── day-19/                      ← Day 19: DC motors with the TB6612FNG driver (H-bridge truth table + fwd/rev/brake/coast + PWM speed control)
 ```
 
 ---
@@ -2457,9 +2458,141 @@ The cause was a **jumper that was not seated all the way**. The part worth recor
 
 **"The scanner found it" does not mean the contact is reliable** — the scanner only needs occasional success, the library needs unbroken success. So reseat the wires before touching the code.
 
+---
+
+## Day 19 — DC Motors with the TB6612FNG Driver
+
+> Date: 2026-09-20
+> Status: ✅ **Bench-tested, both experiments pass** (coast segment and open-loop drift still pending)
+>
+> Hardware: ESP32-S3 (N16R8) + TB6612FNG motor driver module (headers soldered) + TT motor 1:48 (from the chassis kit, rated 3 V) + battery box (2 × AA = 3 V)
+> Core idea: H-bridge truth table → fwd/rev/brake/coast → PWM speed control → dead zone and the open-loop limit
+> Code: [`实验1-电机正反转.ino`](./day-19/实验1-电机正反转/实验1-电机正反转.ino) | [`实验2-PWM调速.ino`](./day-19/实验2-PWM调速/实验2-PWM调速.ino)
+> Videos: [`实验1-电机正反转.MOV`](./day-19/实验1-电机正反转.MOV) | [`实验2-PWM调速.MOV`](./day-19/实验2-PWM调速.MOV)
+> Captures: [`实验1-串口打印.png`](./day-19/实验1-串口打印.png) | [`实验2-串口打印.png`](./day-19/实验2-串口打印.png)
+
+Full notes: [`day-19/README.md`](./day-19/README.md)
+
+### Goal
+Make a TT DC motor run forward, reverse, brake, and coast, then control its speed with PWM. The first day the code produces mechanical motion, and the first load a GPIO cannot drive.
+
+### Hardware
+ESP32-S3 dev board (N16R8) + TB6612FNG motor driver module (headers soldered) + TT motor 1:48 + battery box (2 × AA = 3 V, the TT motor's rated voltage). Six male-to-female jumpers plus the motor screwed straight into the AO1/AO2 terminals — zero extra components.
+
+### Why a GPIO cannot drive a motor directly
+
+Three reasons, each harder than the last:
+
+1. **Not enough current.** An ESP32-S3 GPIO is good for roughly 40 mA continuous; a TT motor draws 100–200 mA free-running and over 1 A stalled. An order of magnitude short.
+2. **It burns the GPIO.** A motor is an inductive load. When the current is interrupted, the back-EMF `V = −L·di/dt` spikes to several times the supply voltage and punches through the GPIO protection.
+3. **No direction change.** A GPIO can only source 0 / 3.3 V. Reversing means swapping the two motor terminals — which needs two crossed switch pairs, i.e. an H-bridge.
+
+> 📌 The division of labour is now fixed: **the GPIO only carries logic levels; the driver chip switches the current.**
+
+### H-bridge and the TB6612FNG truth table
+
+Four switches in an "H", the motor across the middle: S1+S4 closed runs forward, S2+S3 reverses, all open is coast, and S1+S2 closed shorts the two terminals into a brake. **Never close S1+S3 or S2+S4** — that is shoot-through, a dead short across the supply.
+
+One TB6612FNG contains two H-bridges; this project uses channel A only:
+
+| IN1 | IN2 | PWM | Output | Mode |
+|:---:|:---:|:---:|---|---|
+| 1 | 0 | 1 | OUT1=H, OUT2=L | **Forward** |
+| 0 | 1 | 1 | OUT1=L, OUT2=H | **Reverse** |
+| 1 | 1 | 1 | OUT1=L, OUT2=L | **Brake** |
+| 0 | 0 | x | high-Z | **Coast** |
+| x | x | 0 | high-Z | **Coast** |
+
+> ⚠️ **Brake and coast are different things**: `IN1=IN2=1` is the brake, `IN1=IN2=0` is the coast. And with `PWM=0` the outputs are high-Z regardless of the inputs — so "IN1=IN2=1 with PWM=0" is still a coast. **Brake = shorted outputs plus drive capability; both conditions must hold.**
+
+### PWM speed control and the open-loop limit
+
+The H-bridge output is only on/off; PWM produces an **average voltage**: `duty 180/255 ≈ 70.6%` → about `3 V × 0.706 ≈ 2.12 V` across the motor. The frequency reuses Day 10's breathing-LED setting, `ledcAttach(PWMA, 5000, 8)`: 5 kHz is quiet and the switching loss is acceptable, a few hundred Hz squeals, much higher heats up.
+
+**This project can only be open loop**: the code sets a duty and never learns the actual speed. The same duty slows down as the battery drains, under heavier load, and differs between two motors of the same type. The TT motors in the chassis kit have no encoder leads, so closed-loop speed control waits for around Day 28.
+
+> ⚠️ **Multiply duty by VM to get the real voltage.** On a 3 V battery, `duty 180/255` is only 2.12 V average, below the TT motor's breakaway threshold — the motor buzzes but never turns. The 1~2 V a multimeter reads on AO1/AO2 is not a fault: the meter reports the average, not the instantaneous level. Measured breakaway for this motor sits between duty 180 and 220; at 220 all four modes check out, and only duty 220~255 — the last 14% — is left as a usable speed range on 3 V.
+
+The serial port of the PWM ramp reveals two things the code hides: the `P_HOLD` phase goes silent for a full second because duty stops changing and `if (duty != printedDuty)` filters the repeats; and each `STEP_MS = 40` step actually runs about 33 ms, since `Serial.printf` itself costs a few milliseconds. Do not count on `millis()` throttling plus serial printing for precise timing.
+
+
+### Three wiring rules that matter
+
+- **Grounds must be shared**: battery negative, ESP32 GND, and module GND all tied together. Without a common ground the GPIO's "high" has no reference at the driver, which shows up as "code runs, motor does nothing".
+- **VM and VCC are separate supplies**: VM takes the battery positive and the motor current (hundreds of mA to 1 A+); VCC takes the ESP32 3V3 and only a few mA of logic current. Load only 2 cells (3 V) — that is the kit TT motor's rated voltage; 4 cells at 6 V is double the rating, doubling the current and heat and cutting its life short.
+- **STBY straight to 3.3 V** (always high): saves a GPIO and leaves the chip permanently enabled.
+
+Motor AO1/AO2 are not polarised — swapping them only reverses the direction.
+
+### Code notes
+
+- The truth table is translated straight into a `switch`: brake sets `ledcWrite(PWMA, 255)`, coast sets `ledcWrite(PWMA, 0)`.
+- `millis()` throttling instead of `delay(2000)`.
+- The ramp starts at duty 220, not 0, because of the **dead zone** — below a threshold the motor does not turn at all until torque overcomes static friction. The dead zone is set by average voltage, not by the duty number: breakaway on 3 V lands at duty 220, so starting from 120 would buzz through 1.1 s of dead zone every cycle and leave only the last 14% of the duty range usable.
+- ESP32 Arduino Core 3.x uses `ledcAttach(pin, freq, res)` + `ledcWrite(pin, duty)` with no channel number; the old `ledcSetup` / `ledcAttachPin` API is gone.
+
+### Compile Results
+
+```
+Exp1 motor fwd/rev: Sketch uses 323479 bytes (24%) / Global variables 22196 bytes (6%)
+Exp2 PWM ramp:      Sketch uses 323319 bytes (24%) / Global variables 22204 bytes (6%)
+```
+
+✅ Both pass (`--fqbn esp32:esp32:esp32s3`), no new libraries.
+
+### Measured Results
+
+**Experiment 1** ([`实验1-电机正反转.MOV`](./day-19/实验1-电机正反转.MOV) | [`实验1-串口打印.png`](./day-19/实验1-串口打印.png))
+
+All four modes check out, on the condition `DRIVE_DUTY = 220`:
+
+| Mode | LED | Measured |
+|---|---|---|
+| FWD | green | ✅ turns the same direction |
+| REV | orange | ✅ turns the other way |
+| BRAKE | red | ✅ stops immediately |
+| COAST | blue | ⏳ awaiting hand-spin check |
+
+One JSON line every 2 s, with `ain1` / `ain2` matching the LED colour exactly:
+
+```
+{"mode":"FWD","duty":220,"ain1":1,"ain2":0}
+{"mode":"REV","duty":220,"ain1":0,"ain2":1}
+{"mode":"BRAKE","duty":255,"ain1":1,"ain2":1}
+{"mode":"COAST","duty":0,"ain1":0,"ain2":0}
+```
+
+**Experiment 2** ([`实验2-PWM调速.MOV`](./day-19/实验2-PWM调速.MOV) | [`实验2-串口打印.png`](./day-19/实验2-串口打印.png))
+
+`START_DUTY = 220`, duty rises monotonically, one full cycle is about 1.55 s:
+
+```
+220 ──0.23s──> 255 ──1.09s steady──> 255 ──0.23s──> 220 ──immediately back up
+```
+
+The serial log confirms it line by line: `duty` 220→255, `pct` 86.3%→100.0%, `vavg` 2.59 V→3.00 V, strictly linear with duty, no reversal, no jitter. Noise stays at a faint 5 kHz hiss, no squeal.
+
+**The dead zone deletes the second half of the demo**: the design ramps back to the start until the motor stops, but `P_DOWN` flips to `P_UP` the moment duty returns to 220 (= breakaway), so the motor never leaves the breakaway region and "slower and slower until it stops" never happens. That is the dead zone's second and more hidden cost.
+
+### What Went Wrong & How I Fixed It
+
+**① The motor buzzes but never turns — multiply duty by VM to get the real voltage**
+
+The first run used `DRIVE_DUTY = 180`. Under the 6 V plan that is 4.24 V; after switching to a 3 V battery it drops to `3 V × 180/255 ≈ 2.12 V`, below the TT motor's geared breakaway threshold. A plain 3.0 V supply on the motor terminals turns it fine, which proves the motor is healthy — what fell short is the average voltage, not the drive chain.
+
+At 220 (2.59 V) all four modes pass. **This motor's breakaway point on 3 V sits between duty 180 and 220.**
+
+**② Only 1~2 V on AO1/AO2 with a multimeter is not a fault**
+
+The meter cannot follow a 5 kHz switch, so it reports the PWM **average**, not the instantaneous level: `3 V × 180/255 ≈ 2.12 V`, right inside that 1~2 V band. The test is: 0 V means no output, 3.3 V means stuck on, and a value in between is exactly the H-bridge switching normally.
+
+**③ Experiment 2 buzzing "forever" after upload is impossible in the code**
+
+Duty increases by 5 every 40 ms, so it crosses breakaway within 1.1 s. The real cause was `START_DUTY = 120`, where the whole ramp starts inside the dead zone (average voltage 1.41 V~2.12 V). Watch the serial port: if `duty` climbs to 255 and it still will not turn, it is physical (loose terminal / sagging battery / mechanical load); if `duty` sits at the start, the flash was not the latest code.
+
 ### Next Steps
 
-- **Day 19**: DC motors with the TB6612FNG driver (H-bridge, direction reversal, PWM speed control)
+- **Day 20**: continue Month 1 Week 4 per the day-by-day guide (Python scripts / Git workflow)
 
 ---
 ## Learning Journal Policy
