@@ -9,7 +9,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`教程/`](./教程/) | Original 1–6 month article-style learning plans |
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
-| [`day-01/`](./day-01/) … [`day-19/`](./day-19/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-20/`](./day-20/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -34,7 +34,7 @@ This repo doubles as a public learning journal. Every experiment, circuit, and r
 
 - **Week 1** — Circuit theory & simulation (Falstad, Tinkercad, All About Circuits)
 - **Week 2** — ESP32-S3 GPIO, PWM, ADC, serial communication
-- **Week 3** — Soldering, HC-SR04 ultrasonic, MPU-6050 IMU, DC motors + TB6612 driver
+- **Week 3** — Soldering, HC-SR04 ultrasonic, MPU-6050 IMU, DC motors + TB6612 driver, SG90 servo
 - **Week 4** — Python scripts, Git/GitHub workflow, Wi-Fi remote control car capstone
 
 Budget: **$0–$90** depending on tier (simulator-only → full ESP32 starter kit).
@@ -141,6 +141,7 @@ robotics-engineer-learning-tutorial/
 └── day-17/                      ← Day 17: HC-SR04 ultrasonic ranging (Trig/Echo timing + pulseIn + speed-of-sound conversion)
 └── day-18/                      ← Day 18: MPU-6050 IMU over I2C (bus addressing + accel/gyro + tilt from gravity)
 └── day-19/                      ← Day 19: DC motors with the TB6612FNG driver (H-bridge truth table + fwd/rev/brake/coast + PWM speed control)
+└── day-20/                      ← Day 20: SG90 servo control (50 Hz pulse protocol + angle positioning + dedicated 5 V supply)
 ```
 
 ---
@@ -2590,9 +2591,151 @@ The meter cannot follow a 5 kHz switch, so it reports the PWM **average**, not t
 
 Duty increases by 5 every 40 ms, so it crosses breakaway within 1.1 s. The real cause was `START_DUTY = 120`, where the whole ramp starts inside the dead zone (average voltage 1.41 V~2.12 V). Watch the serial port: if `duty` climbs to 255 and it still will not turn, it is physical (loose terminal / sagging battery / mechanical load); if `duty` sits at the start, the flash was not the latest code.
 
+---
+
+## Day 20 — Servo Control
+
+> Date: 2026-09-20
+> Status: ✅ tested on hardware — the servo sweeps between 0° and 180°
+>
+> Hardware: ESP32-S3 (N16R8) + SG90 servo 180° + external 5 V supply + 3 female-to-female Dupont wires
+> Core: position control → single-wire pulse protocol → duty conversion → power and shared ground
+> Code: [`实验1-自动摆动.ino`](./day-20/实验1-自动摆动/实验1-自动摆动.ino) | [`实验2-串口控制角度.ino`](./day-20/实验2-串口控制角度/实验2-串口控制角度.ino)
+> Bench files: [`实验1-自动摆动.MOV`](./day-20/实验1-自动摆动.MOV) | [`实验1-串口打印.png`](./day-20/实验1-串口打印.png) | [`实验1-电路图.png`](./day-20/实验1-电路图.png) | [`实验2-串口控制角度.MOV`](./day-20/实验2-串口控制角度.MOV) | [`实验2-串口输入角度.png`](./day-20/实验2-串口输入角度.png)
+
+Full notes: [`day-20/README.md`](./day-20/README.md)
+
+### Goal
+Move an SG90 servo to a commanded angle and hold it there, then drive the target angle live from the serial port.
+
+### How a servo differs from yesterday's TT motor
+
+| | Day 19 TT motor | Day 20 SG90 servo |
+|---|---|---|
+| Controlled quantity | Speed (continuous rotation) | **Angle** (0°~180° positioning) |
+| Feedback | None, open loop | Internal potentiometer senses position, **the loop is closed inside the servo** |
+| Driver needed | H-bridge (needs reversing) | None, single-wire PWM |
+| Wrong command | Spins too fast / stalls | Blocked-rotor heating, can burn out |
+| Rated voltage | 3 V | **4.8 V** |
+
+In one line: **a motor is "apply voltage and it turns"; a servo is "give it an angle and it stays there".** An SG90 is a motor + reduction gearbox + position potentiometer + control board, with the position loop already closed inside the case. Externally you only publish a target angle.
+
+### Same PWM waveform, completely different meaning
+
+The one sentence to remember today:
+
+> **On Day 19 the pulse width encoded "average voltage = speed"; on Day 20 it encodes "absolute position = angle". The waveform looks identical; the physical meaning is unrelated.**
+
+| | Day 19 motor | Day 20 servo |
+|---|---|---|
+| Frequency | 5000 Hz | **50 Hz** |
+| Period | 0.2 ms | **20 ms** |
+| Encoded quantity | High-time fraction | High-time **absolute width** |
+| What the low time is | The other half of the duty cycle, part of the average | Pure gap, "no command" |
+
+```
+one 20 ms period ────────────────┬─────────────┬──────────
+                                 │             │
+                                 └─ 0.5 ms ─┘  = 0°
+                                 └─ 1.5 ms ─┘  = 90°
+                                 └─ 2.5 ms ─┘  = 180°
+                the remaining ~17.5 ms low time is irrelevant
+```
+
+- Only the high-time width carries meaning; the rest is spacing. The servo re-reads the width on every rising edge.
+- 0.5 ms~2.5 ms is the SG90's range, not what the protocol mandates. "Neutral = 1.5 ms" is the shared convention on generic servo testers.
+- Frequency must be 50 Hz: the internal control loop needs to sample about every 20 ms. Too fast and it cannot keep up, too slow and it jitters while holding.
+- No reversing is needed, so **no H-bridge** — yesterday's entire truth table is void, the first time the driver circuit gets thinner.
+
+### Power: the biggest trap today
+
+**The signal line can go straight to 3.3 V; the power line cannot.**
+
+The SG90 high-level threshold is roughly 2.0~2.5 V, so the ESP32's 3.3 V is a reliable high level for it — the signal wire (yellow on this unit) connects directly to a GPIO with no level shifting. But the red wire must come from an external 5 V:
+
+```
+SG90 no load      ~100 mA
+SG90 loaded       200~300 mA
+SG90 blocked      700 mA +
+ESP32 3V3 pin     keep under 500 mA, and it is shared with onboard logic
+```
+
+A servo is not a logic device, it is an electromechanical actuator. **"Logic-level compatible" is not "power compatible"** — the only criterion today's power section needs.
+
+| Option | Approach | Verdict |
+|---|---|---|
+| ① ESP32 board 5V / VIN pin | Servo red wire to the board's 5V, USB powered | Saves a wire, but USB gives only 500 mA. **A blocked rotor can sag the USB port and reboot the whole ESP32**, and after reboot it blocks again — a loop |
+| ② External 3~4 AA cells (4.5~6 V) + shared ground | Battery box feeds the servo on its own | ✅ recommended, servo current never touches the dev board |
+| ③ The 6 V battery box | The one with lid and switch | 6 V is within the SG90's range (~3.5~6 V), it runs, but faster and hotter |
+
+The SG90 is rated 4.8 V, so 6 V is 25% over. Fine for short debugging; use 3 AA cells (4.5 V) for the long run.
+
+**Shared ground is the prime suspect again**: external supply negative, servo brown wire, and ESP32 GND all joined. Without it the GPIO high level has no reference inside the servo — the symptom is "code runs, serial port fine, servo does not move at all".
+
+### Duty conversion and the 14-bit ceiling
+
+```
+period        = 1 / 50 Hz            = 20 ms = 20000 us
+14-bit steps  = 2^14                = 16384
+step size     = 20000 / 16384       ≈ 1.221 us
+duty = pulse width (us) × 16384 / 20000
+```
+
+| Angle | Pulse width | duty |
+|:---:|:---:|:---:|
+| 0° | 500 us | **410** |
+| 90° | 1500 us | **1229** |
+| 180° | 2500 us | **2048** |
+
+**The ESP32-S3's LEDC tops out at 14 bits** (`SOC_LEDC_TIMER_BIT_WIDTH = 14`, confirmed by forcing the value into a compile error with a `template <int N> struct Reveal;` probe). The 16 bits every servo tutorial uses is a **first-generation ESP32** number. Copy it onto an S3 and `ledcAttach` returns false at the `resolution > SOC_LEDC_TIMER_BIT_WIDTH` check, **logging nothing** — the serial port keeps printing, the servo never moves, and it looks exactly like a wiring fault.
+
+14 bits is enough: check 8-bit (what Day 10 and Day 19 used): 256 steps, each `20000/256 = 78 us`, while the whole 0°→180° span is only 2000 us — **a single 8-bit step equals 7°**, so the servo could only jump 0, 7, 14, 21… At 14 bits a step is 1.221 us, 1638 steps over the full range ≈ **0.11°/step**, finer than the servo's own mechanical backlash.
+
+### API version trap and the three `parseInt` pitfalls
+
+The old `ledcSetup(0,50,16)` + `ledcAttachPin` pair is gone; Core 3.x uses `ledcAttach(SERVO_PIN, 50, 14)` + `ledcWrite(SERVO_PIN, duty)`.
+
+**Only the bool return values can be trusted for self-checks.** `ledcRead()` and `ledcReadFreq()` both lie: `ledcReadFreq()` back-computes frequency from the clock divider register and often returns 0 at 50 Hz; `ledcRead()` reads a shadow register that only syncs once per full PWM period (20 ms), so reading right after attach returns a stale value — measured 6 while the real duty was 410, with the servo turning fine.
+
+Entering angles over serial runs into three `Serial.parseInt()` pitfalls:
+
+1. **The default 1 s timeout returns 0, and 0 is a legal angle** — sending nothing still drives it to a limit. `setTimeout(10)` cuts the wait to 10 ms.
+2. **The previous number sticks** — `\r\n` is not a digit and gets skipped, so last round's "180" lingers in the buffer and gets concatenated into the next parse. Drain the line with `while (Serial.available()) Serial.read();` after parsing.
+3. **It stops at the first number** — `abc` returns 0 (coincidentally legal), `12abc` returns 12. So a range check on the parse result alone is not enough.
+
+### Pre-run checklist
+
+| Symptom | Verdict |
+|---|---|
+| A "thunk" jump to some angle at power-up | Normal. Between power-up and the first `ledcWrite` there are no pulses, so the servo freewheels |
+| Holding still, resisting your fingers | Normal. An analog servo **holds its last position** without a command; only power loss releases it |
+| No heating after sitting at a fixed angle | Normal. Holding needs very little current |
+| **Pin it hard and it heats up fast / burns you** | ❌ **the most common way to kill a servo**. Blocked-rotor current above 700 mA all turns into heat |
+| Serial port fine, servo completely dead | Prime suspect is no shared ground, second is the red wire not on 5 V |
+| Jitter, buzzing, angle never reached | Underpowered (USB 500 mA sagging) or the red wire is on 3V3 |
+
+**An SG90 cannot tell you its real angle**: it is an analog servo and the internal potentiometer signal is never brought out. So, as on Day 19, this is open loop — the code knows "I sent 90°", not "is it really at 90°".
+
+### On-hardware result
+
+**Experiment 1**: serial prints `attach=OK` and duty `410 / 1229 / 2048`, matching the hand calculation; the `us` field back-computes to exactly 500 / 1500 / 2500 us. The video shows the servo sweeping between 0° and 180°.
+
+**Experiment 2**: serial monitor at 115200 / Newline, entering `0` `180` `90` `160` `30` `0` echoes duty `410 / 2048 / 1229 / 1866 / 683` and `us` 500 / 2500 / 1500 / 2278 / 834 — every angle lands on the 14-bit formula, and the video shows the servo following each command.
+
+When the resolution is wrong, `ledcAttach` returns false but logs nothing: the serial output keeps printing while the servo stays still, and the duty values come out at the wrong resolution — 90° is `1229` at 14 bit but `4915` at 16 bit, 180° is `2048` vs `8192`. Seeing 4915 / 8192 on the wire means the firmware on the board is not the current file.
+
+### Build result
+
+```
+实验1-自动摆动：    Sketch uses 294486 bytes (22%) / Global variables 21596 bytes (6%)
+实验2-串口控制角度： Sketch uses 294494 bytes (22%) / Global variables 21588 bytes (6%)
+```
+
+Both pass (`--fqbn esp32:esp32:esp32s3`) with no new libraries. `ESP32Servo.h` is deliberately left out — it hides the 50 Hz, the 14-bit resolution and the duty conversion, which are precisely today's material.
+
 ### Next Steps
 
-- **Day 20**: continue Month 1 Week 4 per the day-by-day guide (Python scripts / Git workflow)
+- **Day 21**: start Month 1 Week 4 per the day-by-day guide (Python scripts / Git workflow)
 
 ---
 ## Learning Journal Policy
