@@ -9,7 +9,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`教程/`](./教程/) | Original 1–6 month article-style learning plans |
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
-| [`day-01/`](./day-01/) … [`day-20/`](./day-20/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-21/`](./day-21/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -2936,6 +2936,33 @@ The single-wheel commands keep the other channel unpowered, which separates "mot
 ```
 
 Both pass (`--fqbn esp32:esp32:esp32s3`) with no new libraries.
+
+### Final power: cutting the USB cord (MP1584EN buck module)
+
+The ESP32 runs off USB right now, so the car is leashed. Once the buck module arrives, wire it like this and unplug:
+
+```
+6 V battery box
+   ├────────────────────► TB6612 VM (motor power, straight 6 V, not bucked)
+   │
+   └──► MP1584EN IN ──► OUT 5 V ──► ESP32 "5V" pin
+                                     │
+   battery − ──┬── TB6612 GND ───────┴── ESP32 GND   (one common ground)
+```
+
+⏳ Waiting for the buck module (ordered 2026-09-22, in transit):
+
+1. Measure the MP1584EN output with a multimeter and confirm it really is 5 V before wiring it up
+2. Take two taps off the 6 V battery box: one into TB6612 VM, one into the buck module IN
+3. Buck OUT 5 V → ESP32 "5V", negative → GND, **one common ground**
+4. Keep USB plugged in until the voltages check out; the serial monitor dropping out after unplug is normal
+5. Run the car on the floor, re-measure `TRIM_RIGHT` and the voltage sag
+
+> ⚠️ **The motors must not run through the buck module.** Two TT motors starting together draw more stall current than the MP1584EN's 3 A; the module's over-current protection would hiccup — exactly the "supply can't deliver" trap from §三. So 6 V splits into **two parallel paths**: motors straight, only the ESP32 bucked.
+>
+> ⚠️ **The grounds must be common**, or the TB6612 PWM signals have no return path and the motors ignore every command.
+
+> 📌 Due by Day 27-28 at the latest — those two days build the Wi-Fi-controlled car, which has to run untethered anyway.
 
 ### Next Steps
 
