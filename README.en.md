@@ -142,6 +142,7 @@ robotics-engineer-learning-tutorial/
 └── day-18/                      ← Day 18: MPU-6050 IMU over I2C (bus addressing + accel/gyro + tilt from gravity)
 └── day-19/                      ← Day 19: DC motors with the TB6612FNG driver (H-bridge truth table + fwd/rev/brake/coast + PWM speed control)
 └── day-20/                      ← Day 20: SG90 servo control (50 Hz pulse protocol + angle positioning + dedicated 5 V supply)
+└── day-21/                      ← Day 21: Robot car chassis (differential steering + motion functions + ultrasonic obstacle-avoidance state machine)
 ```
 
 ---
@@ -2733,9 +2734,212 @@ When the resolution is wrong, `ledcAttach` returns false but logs nothing: the s
 
 Both pass (`--fqbn esp32:esp32:esp32s3`) with no new libraries. `ESP32Servo.h` is deliberately left out — it hides the 50 Hz, the 14-bit resolution and the duty conversion, which are precisely today's material.
 
+---
+
+## Day 21 — Robot Car Chassis & Ultrasonic Obstacle Avoidance
+
+> Date: 2026-09-20
+> Status: ✅ verified on hardware — every motion passes at 6 V
+>
+> Hardware: ESP32-S3 (N16R8) + DZQJ 2WD acrylic chassis (2 × TT motor 1:48 + wheels + caster) + TB6612FNG dual H-bridge + HC-SR04 + battery box (4 × AA = 6 V)
+> Core: differential steering → dual H-bridge → motion functions → sense-decide-act loop
+> Code: [`实验1-双电机差速.ino`](./day-21/实验1-双电机差速/实验1-双电机差速.ino) | [`实验2-超声波避障.ino`](./day-21/实验2-超声波避障/实验2-超声波避障.ino) | [`实验3-串口单步调试.ino`](./day-21/实验3-串口单步调试/实验3-串口单步调试.ino)
+> Build photo: [`智能小车实物接线.png`](./day-21/智能小车实物接线.png) | [`超声波避障接线实物图.png`](./day-21/超声波避障接线实物图.png)
+> Run log: Experiment 1 [`serial`](./day-21/实验1-双电机差速-串口打印.png) | [`video`](./day-21/实验1-双电机差速.MOV) | Experiment 2 [`serial`](./day-21/实验2-超声波避障-串口打印.txt) | [`video`](./day-21/实验2-超声波避障.MOV) | Experiment 3 [`log`](./day-21/实验3-单步调试-日志打印.txt) | [`video`](./day-21/实验3-串口单步调试.MOV)
+
+Full notes: [`day-21/README.md`](./day-21/README.md)
+
+### Goal
+
+Scale Day 19's single motor up to a differential-drive chassis and add an HC-SR04 — the first complete **sense → decide → act** loop in this project.
+
+### Differential steering: a two-wheeler has no steering gear
+
+```
+Forward    left ●▶▶▶▶  right ●▶▶▶▶   same speed, same direction → straight
+Pivot L    left ◀◀◀●    right ●▶▶▶▶   equal speed, opposite → turns about its centre, radius ≈ 0
+Arc L      left ●▶▶     right ●▶▶▶▶   same direction, different speed → arc about a distant centre
+```
+
+Pivoting is the most useful (zero turning radius — it can turn around in a dead end), at the cost of the two wheels fighting each other and drawing more current than straight running.
+
+### Pin map: three peripherals on one board for the first time
+
+| Function | GPIO | From |
+|---|---|---|
+| HC-SR04 Trig / Echo | 4 / 5 | Day 17 |
+| MPU-6050 SDA / SCL | 8 / 9 | Day 18 |
+| TB6612 AIN1 / AIN2 / PWMA (left) | 10 / 11 / 12 | Day 19 |
+| TB6612 BIN1 / BIN2 / PWMB (right) | **15 / 16 / 17** | new on Day 21 |
+| SG90 servo signal | 18 | Day 20 |
+
+The servo and the MPU-6050 are **left off today**: a two-wheel + caster chassis needs no attitude sensing to drive, and the servo only comes aboard with the Day 27 pan-tilt. Wire only what you use.
+
+### Wiring
+
+```
+TB6612FNG                    ESP32-S3 / supply
+─────────                    ─────────────────
+VCC    ──────  3V3 (logic)
+GND    ──────  ESP32 GND and battery − (common ground!)
+STBY   ──────  3V3 (held high)
+VM     ──────  battery + (6 V; motor current never touches the board)
+AIN1/AIN2/PWMA ─── GPIO10 / 11 / 12   left wheel
+AO1/AO2 ──────  left motor ± (swapped leads only reverse it, nothing burns)
+BIN1/BIN2/PWMB ─── GPIO15 / 16 / 17   right wheel
+BO1/BO2 ──────  right motor ±
+
+HC-SR04                      ESP32-S3
+───────                      ────────
+VCC    ──────  3V3
+GND    ──────  GND (common ground)
+Trig   ──────  GPIO4
+Echo   ──────  GPIO5
+```
+
+Three things matter: **common ground** (battery −, ESP32 GND, TB6612 GND and HC-SR04 GND all tied; miss it and the motors do not move while ranging reads 0); **VM and VCC are separate supplies** (motor current comes from the battery, not the board); **the box holds 4 cells = 6 V**, for the reason in the next section.
+
+### Where the duty comes from: 6 V supply, half duty
+
+A motor coil is an inductor — current is smoothed, so the motor sees the **average voltage**, not the PWM peak:
+
+```
+average voltage = supply voltage × duty
+3 V × 230/255 = 2.7 V
+6 V × 115/255 = 2.7 V
+```
+
+Same average voltage means identical speed, torque and heating — the 6 V peak does not burn the motor. The real reason for 6 V is **internal resistance**: a TT motor draws its stall current at start-up, and two AAs have too much resistance relative to 3 V. Two motors starting together pull the rail down, so they buzz without turning, or one turns first and the other only after the current drops. The 6 V box can supply far more peak current and breaks static friction.
+
+Hence 115 cruising, 120 pivoting, 75 for the inner wheel on an arc, plus a 200 ms kick at 150.
+
+The two TT motors differ, so straight running drifts; the code keeps a `TRIM_RIGHT` hand-trim constant. It is an open-loop limitation — encoder feedback is the real fix.
+
+### Two LEDC channels don't collide
+
+The guide's `Motor` class hard-codes `_channel = 0`, so both instances fight over one channel. Core 3.x `ledcAttach(pin, freq, res)` allocates by **pin** and picks a free channel on its own:
+
+```cpp
+ledcAttach(PWMA, 20000, 8);
+ledcAttach(PWMB, 20000, 8);
+```
+
+20 kHz rather than the guide's 5 kHz: above the audible range, so no PWM whine; shorter period means smaller current ripple and an average voltage closer to theory.
+
+📌 **Don't read back with `ledcRead()`.** Under Core 3.x it always returns 0 — braking writes 255 yet prints `PWMB=0%`, which reads like "channel B is dead". Print the value you wrote.
+
+### Experiment 1: differential drive
+
+Eight motions cycle automatically, 6 s each, with the LED colour matching the current motion:
+
+| Motion | left / right duty | LED |
+|---|---|---|
+| forward / reverse | +115 / +115 ｜ −115 / −115 | green / orange |
+| pivot left / right | −120 / +120 ｜ +120 / −120 | cyan / magenta |
+| arc left / right | +75 / +115 ｜ +115 / +75 | yellow |
+| brake / coast | both shorted ｜ both unpowered | red / blue |
+
+Serial output as captured:
+
+```
+09:31:19.549 -> 绿灯 | 前进  两轮都向前 | 左轮=前进115 右轮=前进115
+09:31:43.563 -> 黄灯 | 左弧线  左轮75慢+右轮115快（弯向左） | 左轮=前进75 右轮=前进115
+09:31:55.534 -> 红灯 | 刹车  两轮短接，立刻停住 | 两轮短接制动
+```
+
+All eight pass: pivoting really is equal and opposite (±120), and an arc is outer wheel at full speed with the inner one down to 75.
+
+Brake vs coast reuses Day 19's truth table, applied to each motor: brake is `IN1=IN2=1` with **PWM non-zero**; coast is `IN1=IN2=0`, PWM 0. At PWM 0 the output is high-impedance regardless of IN.
+
+### Experiment 2: ultrasonic avoidance
+
+Adds the HC-SR04 on top of Experiment 1, closing the range → decide → act loop.
+
+### Avoidance state machine
+
+```
+CRUISE ──cm < 15──▶ BACK ──500 ms──▶ TURN ──400 ms──▶ COMMIT ──300 ms──▶ CRUISE
+```
+
+`COMMIT` is not in the guide: measuring right after the turn can see the same wall again 40° later, and the car twitches against it. 300 ms of committed forward motion gets it clear first.
+
+**The threshold needs hysteresis.** A single `dist < 15` oscillates at the boundary (reverse to 16, forward to 14, repeat). Enter at 15 cm, exit at 25 cm, with a 10 cm dead band holding the state.
+
+**`pulseIn()` timeout cut to 6 ms.** Only the first 15 cm matter, so Day 17's 30 ms (400 cm range) is unnecessary. A timeout reads the same as "far away" — both mean go forward — but the worst-case stall drops from 30 ms to 6 ms.
+
+**Turns alternate left and right.** `turnLeftNext` flips after every turn, so two obstacles in a row mean one left turn then one right turn. Seeing it turn left, then right, is by design: always turning the same way drives it deeper into a corner until it is stuck against the wall.
+
+**A hand held in front means endless avoidance.** Hold a hand at 15 cm and the car reverses 0.5 s → turns 0.4 s → commits forward 0.3 s → measures → triggers again, about 1.2 s per round. That is the loop working honestly, not a freeze.
+
+The serial output is plain readable lines rather than bare JSON: avoidance is a sequence, and `{"cm":12.3}` does not tell you which step it is on, why it turned, or which way. Each state change prints its reason, and cruising reports at most once per 500 ms. The firmware prints in Chinese; a sample line:
+
+Captured with a hand held in front repeatedly:
+
+```
+前方 25.9cm，通畅 → 直行前进
+第1轮｜前方 6.1cm < 15cm，挡住了 → 后退 500ms
+第1轮｜原地左转 400ms（左轮后退 / 右轮前进，左右交替，下一轮换另一边）
+第1轮｜转向已转开，强制前进 300ms 再重新测距（避免刚转开又看到障碍）
+第2轮｜前方 14.8cm < 15cm，挡住了 → 后退 500ms
+第2轮｜原地右转 400ms（左轮前进 / 右轮后退，左右交替，下一轮换另一边）
+```
+
+📌 **Logs should explain *why*, not just *what*.** What blocks debugging is never "what is the value" but "on what basis did it decide this". JSON is for Python to parse; the log a human watches is written separately.
+
+Both error cases — "out of range (>100 cm)" and "reading invalid (<2 cm)" — are treated as clear ahead: both mean nothing is blocking, and they differ only in the log text, so a spurious sensor reading never makes the car reverse for no reason.
+
+### Results
+
+| Check | Result |
+|---|---|
+| Two-wheel drive at 6 V (Exp. 1) | ✅ forward / reverse / pivot / arc / brake / coast all pass |
+| HC-SR04 alongside two motors | ✅ no interference, stable readings |
+| 15 / 25 cm hysteresis | ✅ dead band holds, no twitching at the boundary |
+| Alternating turn direction | ✅ L→R→L→R strictly alternating |
+| Continuous avoidance (obstacle not removed) | ✅ keeps going round by round, never freezes |
+| COMMIT 300 ms forward | ✅ actually clears the obstacle zone |
+| Serial step commands `1`-`9`, `lf`…`rc` | ✅ all pass at 6 V |
+
+### Experiment 3: serial step debugging
+
+`1`–`8` each run 6 s then brake for 1 s, so every motion can be watched one at a time. Extras:
+
+| Command | Effect |
+|---|---|
+| `9` | right wheel only: forward 3 s → reverse 3 s, left unpowered |
+| `s` | duty sweep: both wheels 80→255, 1.5 s per step, finds the start threshold |
+| `lf lb lz lc` | left wheel forward / reverse / brake / coast |
+| `rf rb rz rc` | right wheel forward / reverse / brake / coast |
+| `v` | switch 6 V / 3 V calibration |
+| `0` | power off now |
+
+The single-wheel commands keep the other channel unpowered, which separates "motor or wiring" from "supply": if every single-wheel command works but two wheels together don't, the motors and wiring are fine.
+
+### Debug log: two wheels behaving "sometimes"
+
+| Symptom | Real cause |
+|---|---|
+| Motor buzzes but does not turn | peak current too low to break static friction |
+| One turns, then the other | the second only starts once the first's current drops |
+| Works sometimes | battery voltage sits right at the threshold |
+| Right wheel still spinning while braking | same cause, not a code bug |
+| All 8 single-wheel commands fine | motors, wiring and code are all sound |
+
+📌 **When symptoms look alike, find a control pair differing in one variable.** Here it was "one wheel vs two" — the same circuit differing only in current draw, which narrows the search straight to the supply.
+
+### Build result
+
+```
+实验1-双电机差速：   Sketch uses 324683 bytes (24%) / Global variables 22252 bytes (6%)
+实验2-超声波避障：   Sketch uses 324803 bytes (24%) / Global variables 22196 bytes (6%)
+实验3-串口单步调试： Sketch uses 327547 bytes (24%) / Global variables 22172 bytes (6%)
+```
+
+Both pass (`--fqbn esp32:esp32:esp32s3`) with no new libraries.
+
 ### Next Steps
 
-- **Day 21**: start Month 1 Week 4 per the day-by-day guide (Python scripts / Git workflow)
+- **Day 22**: start Month 1 Week 4 (Python scripts / Git workflow)
 
 ---
 ## Learning Journal Policy
