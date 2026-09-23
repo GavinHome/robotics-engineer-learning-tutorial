@@ -9,7 +9,7 @@
 | [`教程/`](./%E6%95%99%E7%A8%8B/) | 1–6 月文章式原始学习计划 |
 | [`进度/`](./%E8%BF%9B%E5%BA%A6/) | 第 1 月 30 天逐日实践指南 + 专业术语中英文对照表 |
 | [`docs/`](./docs/) | ESP32-S3 开发板原始资料（原理图 + 引脚图）+ 元器件实物照片 [`元器件.jpg`](./docs/元器件.jpg) + [`小车模块分工表.md`](./docs/%E5%B0%8F%E8%BD%A6%E6%A8%A1%E5%9D%97%E5%88%86%E5%B7%A5%E8%A1%A8.md)（Day 17-21 各模块在整车中的角色） |
-| [`day-01/`](./day-01/) … [`day-21/`](./day-21/) | 每日学习内容（截图、电路文件、代码与笔记） |
+| [`day-01/`](./day-01/) … [`day-22/`](./day-22/) | 每日学习内容（截图、电路文件、代码与笔记） |
 
 > 📌 **代码约定（Day 10 起）**：后续实验代码默认写成和板载彩灯并行的 `loop()`（一行 `RgbCycle::update()` + 各自 `millis()` 判断），不再单独交"只有灯"的草图。
 
@@ -63,7 +63,8 @@ robotics-engineer-learning-tutorial/
 └── day-18/                      ← 第 18 天：MPU-6050 IMU 与 I2C 通信（总线寻址 + 加速度/陀螺仪 + 反推倾角）
 └── day-19/                      ← 第 19 天：直流电机与 TB6612FNG 驱动（H 桥真值表 + 正反转/刹车/滑行 + PWM 调速）
 └── day-20/                      ← 第 20 天：SG90 舵机控制（50Hz 脉冲协议 + 角度定位 + 5V 独立供电）
-└── day-21/                      ← 第 21 天：智能小车底盘（双电机差速转向 + 运动函数 + 超声波避障状态机）
+├── day-21/                      ← 第 21 天：智能小车底盘（双电机差速转向 + 运动函数 + 超声波避障状态机）
+└── day-22/                      ← 第 22 天：Python 基础回顾（串口 JSON 遥测 → CSV / 配置校验 / 批量重命名）
 ```
 
 ---
@@ -2994,9 +2995,148 @@ ESP32 现在靠 USB 供电，车被一根线拴着。降压模块到货后按此
 
 > 📌 最迟 Day 27-28 必须完成 —— 那两天做 Wi-Fi 遥控小车，本来就是要让车脱离线缆自己跑。
 
+### 为什么 TRIM_RIGHT 标定现在做不了
+
+标定要车**自由跑至少 2 米**，而 USB 线既供电又拴着车：线一拽，跑偏量的判断全是线缆干扰，量出来的补偿值没有意义。想自由跑就得脱离 USB，脱离 USB 就没有串口。
+
+真正要问的不是"什么时候有空标"，而是**脱离 USB 后数据怎么回电脑**。答案是 **Wi-Fi**（Day 25）：ESP32-S3 自带 Wi-Fi，连家里路由或自建 AP，Python 端用 socket 收，不需要额外硬件。BLE 要装 `bleak`、蓝牙串口模块要另买、SD 卡模块手头没有，都不如 Wi-Fi 直接。
+
+```
+Day 24  MP1584EN 到货 → 车脱离 USB（能自由跑了，但没数据通道）
+Day 25  Wi-Fi 打通     → 数据能回电脑
+Day 25+ 才有条件标定   → 下发 trim、读回轨迹
+```
+
+> 📌 标定**不阻塞任何事**：车跑偏只是直行不直，避障闭环完全正常。
+
+> 📌 连带影响：Day 26 指南写的"串口实时绘图"到那天很可能已没有串口可用 —— 车脱离 USB 后，实时绘图也得改成收 Wi-Fi 数据。Day 22 写的 `serial_logger.py` 解析与落 CSV 逻辑不用改，只需把 `serial.Serial()` 换成 socket 读。**ADC2（GPIO11-20）与 Wi-Fi 冲突，Day 25 起模拟量一律走 ADC1（GPIO1-10）。**
+
+---
+
+## 第 22 天 — Python 基础回顾
+
+> 日期：2026-09-22
+> 状态：✅ 四个脚本已跑通 —— 实时串口采集待上机
+>
+> 硬件：ESP32-S3（N16R8）+ HC-SR04（沿用 Day 21 车上那套）+ 电位器/光敏电阻 ×1
+> 核心：把串口数据从"给人看"改成"给程序看" → Python 落 CSV / 解析配置 / 批量改名
+> 代码：[`实验1-串口遥测.ino`](./day-22/实验1-串口遥测/实验1-串口遥测.ino) ｜ [`serial_logger.py`](./day-22/serial_logger.py) ｜ [`log_to_csv.py`](./day-22/log_to_csv.py) ｜ [`config_check.py`](./day-22/config_check.py) ｜ [`batch_rename.py`](./day-22/batch_rename.py)
+> 数据：[`sensor_log.csv`](./day-22/sensor_log.csv) ｜ [`sensor_log.png`](./day-22/sensor_log.png)
+
+完整笔记：[`day-22/README.md`](./day-22/README.md)
+
+### 目标
+
+进入第 4 周。前 21 天的串口输出全是中文日志，今天要让 Python 程序读它——于是第一件事是**换输出格式**。
+
+### 输出格式：中文日志 → JSON
+
+```
+旧：前方 25.9cm，通畅 → 直行前进
+新：{"ms":12345,"dist_cm":25.9,"adc_raw":2048,"voltage":1.65}
+```
+
+中文日志是写给人看的。Python 拿到它得写正则去抠 `25.9`，抠出来还没有字段名，下次改一句文案正则就失效。改成一行一条 JSON 后，`json.loads()` 一行变字典，加字段不用改解析逻辑。
+
+> 这个改动不是临时起意：Day 26 实时绘图、Day 27-28 Wi-Fi 遥测，都得建立在"数据有结构"之上。
+
+几个不那么显然的决定：
+
+| 决定 | 为什么 |
+|---|---|
+| 只发 JSON，不打中文横幅 | Python 靠"行首是不是 `{`"过滤噪声；上电 ROM 会先吐 `ESP-ROM:esp32s3-...` |
+| 超时返回 `-1` 不是 `0` | `0` 会被当"障碍物贴脸"，画进图是根扎到 0 的假尖刺 |
+| 采样 10Hz 而非越快越好 | 50Hz 以上开始丢字符，JSON 解析到一半断掉 |
+
+模拟量接 **GPIO1（ADC1_CH0）** 而不是 GPIO11：ADC2（GPIO11-20）与 Wi-Fi 共用硬件，开着 Wi-Fi 时 `analogRead()` 会失败。Day 27 要同时跑 Wi-Fi 和电池电压监测，从今天起一律走 ADC1。
+
+### 环境：PEP 668 与 venv
+
+`pip install pyserial` 直接失败：
+
+```
+error: externally-managed-environment
+note: ... You can override this, at the risk of breaking your Python installation,
+      by passing --break-system-packages.
+```
+
+Homebrew 装的 Python 3.14 被 PEP 668 标记为"外部管理"——系统里可能有别的程序依赖它自带的包。提示里的 `--break-system-packages` 能绕过，但那是把保护罩整个拆掉。正确做法：
+
+```bash
+/opt/homebrew/bin/python3 -m venv .venv --system-site-packages
+./.venv/bin/python -m pip install pyserial
+```
+
+`--system-site-packages` 让 venv 复用系统里已装的 matplotlib 3.11.1，不用再下一遍。`.gitignore` 里排除 `.venv/`——几百个文件，换台机器重建即可。
+
+### 脚本 1：串口 → CSV
+
+[`serial_logger.py`](./day-22/serial_logger.py)：自动探测 `/dev/cu.usbmodem*`，按行解析 JSON，落 `sensor_log.csv`。
+
+```csv
+timestamp,ms,dist_cm,adc_raw,voltage
+2026-09-22T18:42:07.251,100,25.9,2048,1.65
+2026-09-22T18:42:07.306,200,-1.0,2100,1.69
+2026-09-22T18:42:07.413,400,30.8,1995,1.61
+```
+
+用 pty 造假串口验证（不必为测脚本反复拔插板子），灌入"ROM 噪声 + 正常帧 + 残缺帧 + 正常帧"，脚本正确跳过噪声和残缺帧，只落 3 条完整数据。
+
+车上正跑着别的程序，不方便重烧遥测草图，于是另写了 [`log_to_csv.py`](./day-22/log_to_csv.py)，把 **Day 21 已保存的串口日志**解析成字段完全一致的 CSV。数据源是 [`实验2-超声波避障-串口打印.txt`](./day-21/实验2-超声波避障-串口打印.txt)——每个数字都是当时车上真实测到的，不是构造出来的，但也不是本次从串口实时读的：
+
+```
+共 49 条记录，其中有效距离 14 条 / 距离范围 6.1 ~ 37.2 cm
+超时(-1) 26 条，无效(-2) 9 条
+```
+
+两种含距离的行都要抓（"通畅"和"挡住了"），只抓第一种的话 **<15cm 的近距离读数会全漏**——恰恰是能看出迟滞有没有生效的那段。时间戳按 `seq × 500` 还原（Day 21 草图 `LOG_MS=500`）；`timestamp`、`adc_raw`、`voltage` 三列当年没打印，空着。
+
+### 脚本 2：解析并校验配置
+
+[`config_check.py`](./day-22/config_check.py) + [`config.json`](./day-22/config.json)：把 Day 21 小车的参数抽成配置文件。
+
+**`json.load()` 只保证语法合法，不保证值合理**——`duty_cruise` 写成 999 照样解析成功，一路带到电机上才发现。所以读完必须自己校验。两个真正会咬人的检查：
+
+- `enter_cm >= exit_cm` → 迟滞方向反了，车会在阈值附近"触发→解除→又触发"，原地抽搐
+- GPIO 落在 22-34 或 43/44 → 本板未引出（26-32 Flash，33/34 PSRAM）或占用 USB，编译照样过，上机才发现没反应
+
+设计上**收集所有问题一次性返回**，不是遇到第一个就抛——配置往往不止一处错。
+
+### 脚本 3：批量重命名
+
+[`batch_rename.py`](./day-22/batch_rename.py)，默认 `--dry-run`。
+
+第一版写成"只保留 ASCII"，演练时发现 `实验1-串口遥测.ino` 被改成 `1.ino`——中文全被剥掉。**这个设计是错的**：本仓库素材名全是中文，删掉等于删掉全部信息；转拼音要引入 `pypinyin`，不划算。
+
+脚本真正该解决的是**空格、括号、全角数字、连续分隔符**这些在命令行和 URL 里容易出错的字符。所以改成保留中文，只做 NFKC 全角转半角 + 分隔符统一。另外两条保护：默认演练、目标名冲突跳过不覆盖。
+
+### 踩的坑
+
+| 现象 | 原因 | 解决 |
+|---|---|---|
+| `pip install` 报 externally-managed-environment | PEP 668 保护 Homebrew Python | 建 venv，不用 `--break-system-packages` |
+| venv 里 import matplotlib 失败 | 默认 venv 与系统包隔离 | `venv --system-site-packages` 复用 |
+| 改名后中文文件名变 `1.ino` | 脚本把非 ASCII 全剥了 | 保留中文，只规整分隔符与全角 |
+| CSV 每行间多一个空行 | Python 自动换行转换 | `open(..., newline="")` |
+| Ctrl+C 后程序不退出 | `readline()` 无 timeout 一直阻塞 | `serial.Serial(..., timeout=1)` |
+| 超时读数画出来是扎到 0 的尖刺 | 用 0 表示"无读数" | 改用 -1 |
+| 解析日志时近距离读数全丢了 | 只抓了"通畅"那一种行 | 两种含距离的行都要抓，否则 <15cm 的样本全漏 |
+
+### 编译与运行
+
+```
+实验1-串口遥测：Sketch uses 328152 bytes (25%) / Global variables 22320 bytes (6%)
+```
+
+✅ 通过（`--fqbn esp32:esp32:esp32s3`）。四个脚本均 exit 0。
+
+⏳ **实时串口**采集待上机：烧遥测草图后 `./.venv/bin/python day-22/serial_logger.py --n 300`。在此之前 [`sensor_log.csv`](./day-22/sensor_log.csv) 由 `log_to_csv.py` 从 Day 21 已保存日志解析而来——数字真实，但不是本次串口实时读的。
+
+> 📌 **串口这条路有窗口期**：现在车还插着 USB 所以能采；Day 24 车脱离 USB 独立跑之后就没有串口了，Day 26 的实时绘图届时得改成收 Wi-Fi 数据。解析与落 CSV 逻辑原样复用，只需把 `serial.Serial()` 换成 socket 读。
+
 ### 下一步
 
-- **Day 22**：开始第 1 月第 4 周内容（Python 脚本 / Git 工作流）
+- **Day 23**：Git 版本控制（Learn Git Branching + 为前几周项目建仓库 + `.gitignore`）
 
 ---
 

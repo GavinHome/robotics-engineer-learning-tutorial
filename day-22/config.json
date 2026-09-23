@@ -1,0 +1,30 @@
+{
+  "_comment": "小车运行参数。改这里就能调行为，不必重新烧录——ESP32 端按需读取。Day 22 学习目标：Python 解析配置文件",
+  "car": {
+    "duty_cruise": 115,
+    "duty_turn": 120,
+    "trim_right": 0,
+    "pwm_freq": 20000
+  },
+  "avoid": {
+    "enter_cm": 15,
+    "exit_cm": 25,
+    "back_ms": 500,
+    "turn_ms": 400
+  },
+  "pins": {
+    "ain1": 10,
+    "ain2": 11,
+    "pwma": 12,
+    "bin1": 15,
+    "bin2": 16,
+    "pwmb": 17,
+    "trig": 4,
+    "echo": 5,
+    "adc_battery": 1
+  },
+  "serial": {
+    "baud": 115200,
+    "sample_ms": 100
+  }
+}

@@ -9,7 +9,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`教程/`](./教程/) | Original 1–6 month article-style learning plans |
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
-| [`day-01/`](./day-01/) … [`day-21/`](./day-21/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-22/`](./day-22/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -142,7 +142,8 @@ robotics-engineer-learning-tutorial/
 └── day-18/                      ← Day 18: MPU-6050 IMU over I2C (bus addressing + accel/gyro + tilt from gravity)
 └── day-19/                      ← Day 19: DC motors with the TB6612FNG driver (H-bridge truth table + fwd/rev/brake/coast + PWM speed control)
 └── day-20/                      ← Day 20: SG90 servo control (50 Hz pulse protocol + angle positioning + dedicated 5 V supply)
-└── day-21/                      ← Day 21: Robot car chassis (differential steering + motion functions + ultrasonic obstacle-avoidance state machine)
+├── day-21/                      ← Day 21: Robot car chassis (differential steering + motion functions + ultrasonic obstacle-avoidance state machine)
+└── day-22/                      ← Day 22: Python refresher (serial JSON telemetry → CSV / config validation / batch rename)
 ```
 
 ---
@@ -2964,9 +2965,148 @@ The ESP32 runs off USB right now, so the car is leashed. Once the buck module ar
 
 > 📌 Due by Day 27-28 at the latest — those two days build the Wi-Fi-controlled car, which has to run untethered anyway.
 
+### Why TRIM_RIGHT can't be calibrated yet
+
+Calibration needs the car to **run free for at least 2 m**, but the USB cable both powers and tethers it: the cable drags, that drag dominates any drift measurement, and the trim value you'd get out of it is meaningless. Free running requires dropping USB, and dropping USB removes the serial port.
+
+So the real question isn't "when is there time to calibrate" — it's **how data gets back to the computer once USB is gone**. The answer is **Wi-Fi** (Day 25): the ESP32-S3 has Wi-Fi built in, it joins the home router or makes its own AP, and Python reads it over a socket — no extra hardware. BLE needs `bleak` installed, a Bluetooth serial module means another purchase, and there's no SD card module on hand.
+
+```
+Day 24  MP1584EN arrives → car drops USB (free to run, but no data channel)
+Day 25  Wi-Fi works      → data can reach the computer
+Day 25+ calibration possible → send trim down, read the trajectory back
+```
+
+> 📌 Calibration **blocks nothing**: drift only makes straight running crooked; obstacle avoidance works fine.
+
+> 📌 Knock-on effect: the "serial live plotting" in the Day 26 guide may well have no serial port left by then — once the car drops USB, live plotting has to read Wi-Fi too. The parsing and CSV-writing logic in the Day 22 `serial_logger.py` needs no change, only `serial.Serial()` swapped for a socket. **ADC2 (GPIO11-20) conflicts with Wi-Fi, so from Day 25 all analog reads go to ADC1 (GPIO1-10).**
+
+---
+
+## Day 22 — Python Refresher
+
+> Date: 2026-09-22
+> Status: ✅ all four scripts run — live serial capture pending
+>
+> Hardware: ESP32-S3 (N16R8) + HC-SR04 (reused from the Day 21 car) + potentiometer or photoresistor ×1
+> Core: turn serial output from "for humans" into "for programs" → Python writes CSV / validates config / batch renames
+> Code: [`实验1-串口遥测.ino`](./day-22/实验1-串口遥测/实验1-串口遥测.ino) | [`serial_logger.py`](./day-22/serial_logger.py) | [`log_to_csv.py`](./day-22/log_to_csv.py) | [`config_check.py`](./day-22/config_check.py) | [`batch_rename.py`](./day-22/batch_rename.py)
+> Data: [`sensor_log.csv`](./day-22/sensor_log.csv) | [`sensor_log.png`](./day-22/sensor_log.png)
+
+Full notes: [`day-22/README.md`](./day-22/README.md)
+
+### Goal
+
+Week 4 begins. Every serial line from the first 21 days was a Chinese log meant for human eyes; today a Python program has to read it — so the first job is **changing the output format**.
+
+### Output format: Chinese log → JSON
+
+```
+old: 前方 25.9cm，通畅 → 直行前进
+new: {"ms":12345,"dist_cm":25.9,"adc_raw":2048,"voltage":1.65}
+```
+
+The Chinese log is written for people. Python would need a regex to dig out `25.9`, the number arrives with no field name, and the regex breaks the moment the log wording changes. One JSON object per line turns into a dict with `json.loads()`, and adding a field needs no parser change.
+
+> Not a spur-of-the-moment decision: Day 26 live plotting and Day 27-28 Wi-Fi telemetry both depend on the data having structure.
+
+Decisions that aren't obvious:
+
+| Decision | Why |
+|---|---|
+| Emit JSON only, no banner | Python filters noise by "does the line start with `{`?" — the ROM prints `ESP-ROM:esp32s3-...` on boot |
+| Timeout returns `-1`, not `0` | `0` reads as "obstacle right in front" and plots as a fake spike down to zero |
+| Sample at 10 Hz, not as fast as possible | Past 50 Hz characters start dropping and JSON parses half a line |
+
+The analog input goes to **GPIO1 (ADC1_CH0)**, not GPIO11: ADC2 (GPIO11-20) shares hardware with Wi-Fi, so `analogRead()` fails while Wi-Fi is on. Day 27 runs Wi-Fi and battery monitoring together, so everything uses ADC1 from now on.
+
+### Environment: PEP 668 and venv
+
+`pip install pyserial` fails outright:
+
+```
+error: externally-managed-environment
+note: ... You can override this, at the risk of breaking your Python installation,
+      by passing --break-system-packages.
+```
+
+The Homebrew Python 3.14 is marked externally managed under PEP 668 — other programs may depend on the packages it ships with. `--break-system-packages` works, but it removes the guard entirely. The right fix:
+
+```bash
+/opt/homebrew/bin/python3 -m venv .venv --system-site-packages
+./.venv/bin/python -m pip install pyserial
+```
+
+`--system-site-packages` lets the venv reuse the already-installed matplotlib 3.11.1 instead of downloading it again. `.gitignore` excludes `.venv/` — hundreds of files, trivially rebuilt on another machine.
+
+### Script 1: serial → CSV
+
+[`serial_logger.py`](./day-22/serial_logger.py) auto-detects `/dev/cu.usbmodem*`, parses one JSON object per line, writes `sensor_log.csv`.
+
+```csv
+timestamp,ms,dist_cm,adc_raw,voltage
+2026-09-22T18:42:07.251,100,25.9,2048,1.65
+2026-09-22T18:42:07.306,200,-1.0,2100,1.69
+2026-09-22T18:42:07.413,400,30.8,1995,1.61
+```
+
+Verified with a fake serial port built from a pty (no need to unplug the board to test): feeding "ROM noise + good frame + truncated frame + good frame", the script skipped the noise and the broken frame and wrote exactly the 3 complete rows.
+
+The car is busy running other code, so reflashing the telemetry sketch is inconvenient. [`log_to_csv.py`](./day-22/log_to_csv.py) instead parses the **serial log already saved on Day 21** into a CSV with identical fields. Source: [`实验2-超声波避障-串口打印.txt`](./day-21/实验2-超声波避障-串口打印.txt) — every number in it was genuinely measured on the car at the time, but it was not read live from serial today:
+
+```
+49 records, 14 with a valid distance / range 6.1 ~ 37.2 cm
+timeout (-1) 26, invalid (-2) 9
+```
+
+Both kinds of distance-bearing lines must be matched ("clear" and "blocked"): matching only the first would **drop every sub-15 cm reading** — exactly the range that shows whether hysteresis is working. Timestamps are reconstructed as `seq × 500` (Day 21 sketch `LOG_MS=500`); `timestamp`, `adc_raw`, `voltage` were never printed back then, so they stay empty.
+
+### Script 2: parse and validate config
+
+[`config_check.py`](./day-22/config_check.py) + [`config.json`](./day-22/config.json) pull the Day 21 car parameters into a config file.
+
+**`json.load()` guarantees valid syntax, not sane values** — `duty_cruise: 999` parses fine and only shows up once it reaches the motors. So validation has to happen after loading. Two checks that actually bite:
+
+- `enter_cm >= exit_cm` → hysteresis inverted; the car "trigger → release → trigger" and shivers in place
+- GPIO in 22-34 or 43/44 → not broken out on this board (26-32 Flash, 33/34 PSRAM) or used by USB; still compiles, then does nothing on hardware
+
+By design it **collects every problem and returns them at once** — configs are rarely wrong in only one place.
+
+### Script 3: batch rename
+
+[`batch_rename.py`](./day-22/batch_rename.py), `--dry-run` by default.
+
+The first version kept ASCII only, and the dry run showed `实验1-串口遥测.ino` turning into `1.ino` — the Chinese was stripped entirely. **Wrong design**: every asset in this repo is named in Chinese, so stripping it destroys all the information; converting to pinyin needs `pypinyin`, which isn't worth it.
+
+What the script should actually fix is **spaces, brackets, full-width digits, repeated separators** — the characters that break in shells and URLs. So it now keeps Chinese and only does NFKC full-width folding plus separator normalisation. Two more guards: dry-run by default, and skip on name collision rather than overwrite.
+
+### What Went Wrong
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `pip install` says externally-managed-environment | PEP 668 protects the Homebrew Python | Use a venv, not `--break-system-packages` |
+| `import matplotlib` fails inside venv | Default venv isolates system packages | `venv --system-site-packages` to reuse them |
+| Chinese filename renamed to `1.ino` | Script stripped all non-ASCII | Keep Chinese, only normalise separators and full-width |
+| Blank line between CSV rows | Python's newline translation | `open(..., newline="")` |
+| Ctrl+C doesn't quit the program | `readline()` blocks with no timeout | `serial.Serial(..., timeout=1)` |
+| Timeouts plot as a spike to zero | Using 0 for "no reading" | Use -1 instead |
+| Short-range readings all missing when parsing the log | Only the "clear" line variant was matched | Match both distance-bearing variants, or every sub-15 cm sample is lost |
+
+### Build & run
+
+```
+实验1-串口遥测：Sketch uses 328152 bytes (25%) / Global variables 22320 bytes (6%)
+```
+
+✅ Passes (`--fqbn esp32:esp32:esp32s3`). All four scripts exit 0.
+
+⏳ **Live serial** capture pending: flash the telemetry sketch, then `./.venv/bin/python day-22/serial_logger.py --n 300`. Until then [`sensor_log.csv`](./day-22/sensor_log.csv) comes from `log_to_csv.py` parsing the Day 21 saved log — the numbers are real, but they were not read from serial today.
+
+> 📌 **The serial path has a window**: it works only while the car is still on USB. Once the car drops USB on Day 24 and runs freely, there is no serial port — Day 26 live plotting will have to read Wi-Fi instead. The parsing and CSV-writing logic carries over unchanged; only `serial.Serial()` becomes a socket.
+
 ### Next Steps
 
-- **Day 22**: start Month 1 Week 4 (Python scripts / Git workflow)
+- **Day 23**: Git version control (Learn Git Branching + repos for earlier weeks + `.gitignore`)
 
 ---
 ## Learning Journal Policy
