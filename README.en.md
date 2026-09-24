@@ -9,7 +9,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`教程/`](./教程/) | Original 1–6 month article-style learning plans |
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
-| [`day-01/`](./day-01/) … [`day-23/`](./day-23/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-24/`](./day-24/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -144,7 +144,8 @@ robotics-engineer-learning-tutorial/
 └── day-20/                      ← Day 20: SG90 servo control (50 Hz pulse protocol + angle positioning + dedicated 5 V supply)
 ├── day-21/                      ← Day 21: Robot car chassis (differential steering + motion functions + ultrasonic obstacle-avoidance state machine)
 ├── day-22/                      ← Day 22: Python refresher (serial JSON telemetry → CSV / config validation / batch rename)
-└── day-23/                      ← Day 23: Git version control (two-dot inspection + diff3 conflict markers + reflog recovery / merge vs rebase)
+├── day-23/                      ← Day 23: Git version control (two-dot inspection + diff3 conflict markers + reflog recovery / merge vs rebase)
+└── day-24/                      ← Day 24: README writing and project presentation (ffmpeg GIF clipping + hand-written SVG wiring diagram + README section order)
 ```
 
 ---
@@ -3201,9 +3202,138 @@ git log --oneline main..origin/main   # empty = not behind the remote
 | Can't see the original text in a conflict | Default style hides the base | Enable `merge.conflictStyle diff3` |
 | Assumed a clean tree means a clean repo | `git status` never checks the remote | Run `git log main..origin/main` both ways |
 
+---
+
+## Day 24 — README Writing and Project Presentation
+
+> Date: 2026-09-24
+> Status: ✅ done
+>
+> Hardware: nothing new (reuses the Day 21 car: ESP32-S3 + TB6612FNG + HC-SR04 + two TT motors + 4×AA holder)
+> Core: a standalone project README for the car — intro / hardware / wiring / code / test results / pitfalls / next steps
+> Project README: [`day-24/README.md`](./day-24/README.md)
+> Demo: [`超声波避障演示.gif`](./day-24/超声波避障演示.gif) ｜ Wiring: [`智能小车接线图.png`](./day-24/智能小车接线图.png) ｜ Asset build log: [`素材制作过程.md`](./day-24/素材制作过程.md)
+
+Full notes: [`day-24/README.md`](./day-24/README.md)
+
+### Goal
+
+Day 24 asks for "a complete README with a GIF demo and a wiring diagram", on this template:
+
+```
+# Project name / ## Intro / ## Hardware / ## Wiring / ## Code / ## Test results / ## Pitfalls (Problem 1: xxx → Fix: yyy) / ## Next steps
+```
+
+Reality check: this repo settled its README format long ago; **the GIF was genuinely missing** (Day 21 saved a 26-second 1080p MOV, 30 MB); and the Fritzing library has neither the ESP32-S3-WROOM-1 nor the TB6612FNG module in my hands.
+
+The key point: **「Pitfalls」in the template means the pitfalls of the car project, not the pitfalls of producing the GIF.** So [`day-24/README.md`](./day-24/README.md) is a project README, the day-by-day process notes stay in [`day-21/README.md`](./day-21/README.md), and the asset build log lives separately in [`素材制作过程.md`](./day-24/素材制作过程.md).
+
+### Intro
+
+A two-wheel differential-drive car that dodges obstacles on its own with a single front HC-SR04: while cruising it ranges every 100 ms, and below 15 cm it reverses → turns → commits forward, then resumes judging. If the obstacle never moves away, it keeps circling rather than getting stuck.
+
+![Ultrasonic avoidance demo](./day-24/超声波避障演示.gif)
+
+Demo: [`超声波避障演示.gif`](./day-24/超声波避障演示.gif) (4 s, 440×248, 8 fps, 1.50 MB)
+
+### Hardware
+
+| Part | Spec | Qty | Role |
+|---|---|---|---|
+| ESP32-S3-WROOM-1 board | N16R8 | 1 | Main controller. LEDC for PWM, on-board RGB on GPIO48 |
+| DZQJ 2WD acrylic chassis | TT motors 1:48 ×2, wheels ×2, casters ×2 | 1 | Body |
+| TB6612FNG dual H-bridge module | — | 1 | Drives both motors, has an STBY enable pin |
+| HC-SR04 ultrasonic module | 2 ~ 400 cm | 1 | Forward ranging |
+| Battery holder | 4×AA = 6 V | 1 | **Motors only**, into the TB6612's `VM` |
+
+**Deliberately omitted**: MPU-6050 (a two-wheel + caster chassis needs no attitude to drive) and SG90 servo (Day 27 pan-tilt). One fewer set of wires is one fewer failure point.
+
+### Wiring
+
+[`智能小车接线图.png`](./day-24/智能小车接线图.png) (1770×1410) ｜ source [`智能小车接线图.svg`](./day-24/智能小车接线图.svg)
+
+| Colour | Meaning |
+|---|---|
+| Blue | GPIO signals |
+| Red | 3V3 logic supply |
+| Orange | Motor supply VM (thick, high current) |
+| Black | Common ground (thick) |
+
+| Function | GPIO |
+|---|---|
+| HC-SR04 Trig / Echo | 4 / 5 |
+| Left AIN1 / AIN2 / PWMA | 10 / 11 / 12 |
+| Right BIN1 / BIN2 / PWMB | 15 / 16 / 17 |
+| On-board RGB | 48 |
+
+![Robot car wiring diagram](./day-24/智能小车接线图.png)
+
+Three things you cannot get wrong: **ground common at four points** (battery negative / ESP32 GND / TB6612 GND / HC-SR04 GND — miss it and the motors don't turn while ranging reads a constant 0); **`VM` and `VCC` are two separate paths** (motor current comes from the battery and never crosses the board; tying them together collapses 3V3 the moment the motors spin); **`STBY` tied to 3V3, held high** (pull it low and the whole TB6612 sleeps).
+
+### Code
+
+```cpp
+const int AIN1 = 10, AIN2 = 11, PWMA = 12;   // left wheel
+const int BIN1 = 15, BIN2 = 16, PWMB = 17;   // right wheel
+const int DUTY_CRUISE = 115, DUTY_TURN = 120;
+const unsigned long TIMEOUT_US = 6000;        // ≈103cm
+const float NEAR_CM = 15.0, FAR_CM = 25.0;    // 10cm hysteresis band
+enum State { S_CRUISE, S_BACK, S_TURN, S_COMMIT };
+```
+
+```
+CRUISE ──cm < 15──▶ BACK ──500ms──▶ TURN ──400ms──▶ COMMIT ──300ms──▶ CRUISE
+   ▲                                                                     │
+   └────────────────────── cm > 25 ──────────────────────────────────────┘
+```
+
+| State | Action | LED |
+|---|---|---|
+| `CRUISE` | forward, ranging every 100 ms | green |
+| `BACK` | reverse 500 ms | orange |
+| `TURN` | pivot 400 ms (alternating side) | red |
+| `COMMIT` | **forced 300 ms forward, no ranging** | yellow |
+
+Four design points: **hysteresis** (a single threshold oscillates at the 15 cm boundary; 15 / 25 carves out a 10 cm dead band); **`COMMIT` is not in the guide** (resuming ranging only 40° into the turn makes the car twitch against the wall — force 300 ms forward first); **`pulseIn()` timeout cut to 6 ms** (blocking drops from 30 ms to 6 ms, and "timed out" reads as "far away", consistent with the long-range verdict, so no information is lost); **alternating turn direction** (a fixed side turns deeper and deeper; alternating probes back and forth near the spot).
+
+Duty is 115, not 255: the TT motors are rated 3 V and the pack is 6 V, so duty pulls the **average voltage** back to `115/255 × 6 ≈ 2.7 V`. The criterion is average voltage, not the duty number. 6 V was chosen for lower internal resistance — enough peak current to start both motors at once.
+
+### Test Results
+
+```
+实验1-双电机差速：   Sketch uses 324683 bytes (24%) / Global variables 22252 bytes (6%)
+实验2-超声波避障：   Sketch uses 324803 bytes (24%) / Global variables 22196 bytes (6%)
+实验3-串口单步调试： Sketch uses 327547 bytes (24%) / Global variables 22172 bytes (6%)
+```
+
+| Check | Result |
+|---|---|
+| Two-wheel drive on 6 V | ✅ forward / reverse / pivot / arc all fine |
+| HC-SR04 coexisting with both motors | ✅ no interference, stable readings |
+| 15 / 25 cm hysteresis | ✅ dead band works, no boundary twitching |
+| Alternating turn direction | ✅ strict alternation (1 L, 2 R, 3 L, 4 R) |
+| Continuous avoidance (obstacle never removed) | ✅ keeps circling by round, never stuck |
+| COMMIT forced 300 ms forward | ✅ actually leaves the obstacle zone after turning |
+
+### What Went Wrong
+
+| Problem | Cause | Fix |
+|---|---|---|
+| Only the left wheel turns; sometimes left, sometimes right | 3 V pack's internal resistance can't supply both stall currents | 4×AA 6 V, duty down to 115 so average voltage returns to 2.7 V |
+| `ledcRead()` always returns 0 | Readback unreliable on Core 3.x | Don't read back; keep the value you wrote |
+| Shaking back and forth against the obstacle | Single threshold oscillates at 15 cm | 15 / 25 dual threshold, 10 cm hysteresis band |
+| Still facing the same wall after turning | Ranged again only 40° into the turn | Add `COMMIT`: 300 ms forward, no ranging |
+| Serial prints "reverse 0 s" | `%.0f` rounds 0.5 to 0 | Print milliseconds for sub-second durations |
+| Turns deeper and deeper to one side | Fixed turn direction | `turnLeftNext` flips each round |
+| Motors differ in speed; car drifts | TT motor unit variation | Unsolved. `TRIM_RIGHT` needs measuring; wait for Day 25 Wi-Fi to push trim and read the track back |
+
+The most valuable debugging move was **finding a control pair that differs by one variable**: all eight single-wheel commands (`lf lb lz lc rf rb rz rc`) pass while all two-wheel commands (`1`-`8`) fail, and the only differences are wheel count and duty — so GPIO, wiring and code are ruled out and the supply is the suspect. Assuming bad Dupont contacts instead would have kept me poking at six wires.
+
 ### Next Steps
 
-- **Day 24**: README writing and project presentation (Fritzing / draw.io schematics + GIF demo); buck converter arrives and the car goes off USB
+- **Day 25**: first Wi-Fi on the ESP32-S3 (join 2.4 GHz, print the IP, HTTP request, run a web server)
+
+> 📌 The Day 24 plan of "buck converter arrives, car goes off USB" did not happen — the MP1584EN is still in transit (ordered 2026-09-22). When it lands: measure the output with a multimeter and confirm 5 V before wiring it to the ESP32「5V」pin; motors stay on the battery's 6 V and never go through the buck; battery negative ties to board GND.
 
 ---
 ## Learning Journal Policy

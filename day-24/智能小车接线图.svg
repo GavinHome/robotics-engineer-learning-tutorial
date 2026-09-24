@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="940" viewBox="0 0 1180 940">
+<rect x="0" y="0" width="1180" height="940" fill="#ffffff"/>
+<text x="60" y="30" font-family="PingFang SC" font-size="20" font-weight="bold" fill="#111827">智能小车接线图 — ESP32-S3 + TB6612FNG + HC-SR04 + 双 TT 马达</text>
+
+<!-- ===== 连线（先画，压在元件框下面） ===== -->
+<g fill="none" stroke-width="2" stroke-linejoin="miter">
+  <!-- ESP32 -> HC-SR04（走顶部，避开中间线束） -->
+  <path d="M300,174 H320 V64 H838 V180 H850" stroke="#dc2626"/>
+  <path d="M300,214 H332 V72 H830 V212 H850" stroke="#2563eb"/>
+  <path d="M300,254 H344 V80 H822 V244 H850" stroke="#2563eb"/>
+  <path d="M300,294 H356 V88 H814 V276 H850" stroke="#111827"/>
+  <!-- ESP32 -> TB6612 -->
+  <path d="M300,344 H390 V200 H470" stroke="#2563eb"/>
+  <path d="M300,384 H400 V240 H470" stroke="#2563eb"/>
+  <path d="M300,424 H410 V280 H470" stroke="#2563eb"/>
+  <path d="M300,474 H420 V330 H470" stroke="#2563eb"/>
+  <path d="M300,514 H430 V370 H470" stroke="#2563eb"/>
+  <path d="M300,554 H440 V410 H470" stroke="#2563eb"/>
+  <path d="M300,614 H455 V460 H470" stroke="#dc2626"/>
+  <path d="M455,500 H470" stroke="#dc2626"/>
+  <!-- TB6612 -> 电机 / 电池（电机电源） -->
+  <path d="M700,385 H850" stroke="#ea580c" stroke-width="3"/>
+  <path d="M700,495 H850" stroke="#ea580c" stroke-width="3"/>
+  <path d="M680,560 V630 H810 V660" stroke="#ea580c" stroke-width="3"/>
+  <!-- 共地 -->
+  <path d="M300,664 H360 V800" stroke="#111827"/>
+  <path d="M560,560 V800" stroke="#111827"/>
+  <path d="M860,770 V800" stroke="#111827"/>
+  <path d="M360,800 H860" stroke="#111827" stroke-width="4"/>
+</g>
+
+<!-- ===== ESP32-S3 ===== -->
+<rect x="60" y="90" width="240" height="640" rx="8" fill="#ffffff" stroke="#374151" stroke-width="2"/>
+<rect x="60" y="90" width="240" height="26" rx="8" fill="#1e3a8a"/>
+<rect x="60" y="103" width="240" height="13" fill="#1e3a8a"/>
+<text x="180" y="109" font-family="PingFang SC" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">ESP32-S3-WROOM-1</text>
+<g font-family="PingFang SC" font-size="14" fill="#111827" text-anchor="end">
+  <text x="288" y="178">3V3</text>
+  <text x="288" y="218">GPIO4 · Trig</text>
+  <text x="288" y="258">GPIO5 · Echo</text>
+  <text x="288" y="298">GND</text>
+  <text x="288" y="348">GPIO10 · AIN1</text>
+  <text x="288" y="388">GPIO11 · AIN2</text>
+  <text x="288" y="428">GPIO12 · PWMA</text>
+  <text x="288" y="478">GPIO15 · BIN1</text>
+  <text x="288" y="518">GPIO16 · BIN2</text>
+  <text x="288" y="558">GPIO17 · PWMB</text>
+  <text x="288" y="618">3V3</text>
+  <text x="288" y="668">GND</text>
+</g>
+<g font-family="PingFang SC" font-size="13" fill="#6b7280" text-anchor="middle">
+  <text x="180" y="694">板载 RGB · GPIO48</text>
+  <text x="180" y="714">当前由 USB 5V 供电</text>
+</g>
+
+<!-- ===== TB6612FNG ===== -->
+<rect x="470" y="140" width="230" height="420" rx="8" fill="#ffffff" stroke="#374151" stroke-width="2"/>
+<rect x="470" y="140" width="230" height="26" rx="8" fill="#065f46"/>
+<rect x="470" y="153" width="230" height="13" fill="#065f46"/>
+<text x="585" y="159" font-family="PingFang SC" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">TB6612FNG 双路驱动</text>
+<g font-family="PingFang SC" font-size="14" fill="#111827">
+  <text x="478" y="204">AIN1</text>
+  <text x="478" y="244">AIN2</text>
+  <text x="478" y="284">PWMA</text>
+  <text x="478" y="334">BIN1</text>
+  <text x="478" y="374">BIN2</text>
+  <text x="478" y="414">PWMB</text>
+  <text x="478" y="464">VCC</text>
+  <text x="478" y="504">STBY</text>
+</g>
+<g font-family="PingFang SC" font-size="14" fill="#111827" text-anchor="end">
+  <text x="692" y="389">AO1 / AO2</text>
+  <text x="692" y="499">BO1 / BO2</text>
+</g>
+<g font-family="PingFang SC" font-size="14" fill="#111827" text-anchor="middle">
+  <text x="560" y="580">GND</text>
+  <text x="680" y="580">VM</text>
+</g>
+<text x="585" y="540" font-family="PingFang SC" font-size="13" fill="#6b7280" text-anchor="middle">STBY 接 3V3 常高</text>
+
+<!-- ===== HC-SR04 ===== -->
+<rect x="850" y="120" width="250" height="190" rx="8" fill="#ffffff" stroke="#374151" stroke-width="2"/>
+<rect x="850" y="120" width="250" height="26" rx="8" fill="#7c2d12"/>
+<rect x="850" y="133" width="250" height="13" fill="#7c2d12"/>
+<text x="975" y="139" font-family="PingFang SC" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">HC-SR04 超声波</text>
+<g font-family="PingFang SC" font-size="14" fill="#111827">
+  <text x="858" y="184">VCC</text>
+  <text x="858" y="216">Trig</text>
+  <text x="858" y="248">Echo</text>
+  <text x="858" y="280">GND</text>
+</g>
+<text x="975" y="300" font-family="PingFang SC" font-size="13" fill="#6b7280" text-anchor="middle">朝正前方 · 2 ~ 400 cm</text>
+
+<!-- ===== 左电机 ===== -->
+<rect x="850" y="340" width="250" height="90" rx="8" fill="#ffffff" stroke="#ea580c" stroke-width="2"/>
+<rect x="850" y="340" width="250" height="26" rx="8" fill="#ea580c"/>
+<rect x="850" y="353" width="250" height="13" fill="#ea580c"/>
+<text x="975" y="359" font-family="PingFang SC" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">TT 马达 · 左轮</text>
+<g font-family="PingFang SC" font-size="13" fill="#6b7280" text-anchor="middle">
+  <text x="975" y="392">AO1 / AO2 输出</text>
+  <text x="975" y="412">无编码器，转速开环</text>
+</g>
+
+<!-- ===== 右电机 ===== -->
+<rect x="850" y="450" width="250" height="90" rx="8" fill="#ffffff" stroke="#ea580c" stroke-width="2"/>
+<rect x="850" y="450" width="250" height="26" rx="8" fill="#ea580c"/>
+<rect x="850" y="463" width="250" height="13" fill="#ea580c"/>
+<text x="975" y="469" font-family="PingFang SC" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">TT 马达 · 右轮</text>
+<g font-family="PingFang SC" font-size="13" fill="#6b7280" text-anchor="middle">
+  <text x="975" y="502">BO1 / BO2 输出</text>
+  <text x="975" y="522">反向安装，故左右反相</text>
+</g>
+
+<!-- ===== 电池 ===== -->
+<rect x="760" y="660" width="180" height="110" rx="8" fill="#ffffff" stroke="#92400e" stroke-width="2"/>
+<rect x="760" y="660" width="180" height="26" rx="8" fill="#92400e"/>
+<rect x="760" y="673" width="180" height="13" fill="#92400e"/>
+<text x="850" y="679" font-family="PingFang SC" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">电池盒 4×AA</text>
+<g font-family="PingFang SC" font-size="13" fill="#6b7280" text-anchor="middle">
+  <text x="850" y="708">+ 6 V（电机电源）</text>
+  <text x="850" y="728">− 接共地</text>
+  <text x="850" y="748">电机不经过降压模块</text>
+</g>
+
+<!-- ===== 共地标注 & 图例 ===== -->
+<text x="360" y="828" font-family="PingFang SC" font-size="15" fill="#111827">GND 三点共地（开发板 / 驱动 / 电池）</text>
+<rect x="360" y="856" width="14" height="14" fill="#ea580c"/>
+<text x="384" y="868" font-family="PingFang SC" font-size="15" fill="#111827">橙：电机电源（大电流，不经面包板 / 降压）</text>
+<rect x="360" y="888" width="14" height="14" fill="#dc2626"/>
+<text x="384" y="900" font-family="PingFang SC" font-size="15" fill="#111827">红：3V3 逻辑电</text>
+<rect x="560" y="888" width="14" height="14" fill="#2563eb"/>
+<text x="584" y="900" font-family="PingFang SC" font-size="15" fill="#111827">蓝：GPIO 信号</text>
+<rect x="740" y="888" width="14" height="14" fill="#111827"/>
+<text x="764" y="900" font-family="PingFang SC" font-size="15" fill="#111827">黑：GND 共地</text>
+</svg>
