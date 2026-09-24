@@ -9,7 +9,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`教程/`](./教程/) | Original 1–6 month article-style learning plans |
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
-| [`day-01/`](./day-01/) … [`day-22/`](./day-22/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-23/`](./day-23/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -143,7 +143,8 @@ robotics-engineer-learning-tutorial/
 └── day-19/                      ← Day 19: DC motors with the TB6612FNG driver (H-bridge truth table + fwd/rev/brake/coast + PWM speed control)
 └── day-20/                      ← Day 20: SG90 servo control (50 Hz pulse protocol + angle positioning + dedicated 5 V supply)
 ├── day-21/                      ← Day 21: Robot car chassis (differential steering + motion functions + ultrasonic obstacle-avoidance state machine)
-└── day-22/                      ← Day 22: Python refresher (serial JSON telemetry → CSV / config validation / batch rename)
+├── day-22/                      ← Day 22: Python refresher (serial JSON telemetry → CSV / config validation / batch rename)
+└── day-23/                      ← Day 23: Git version control (two-dot inspection + diff3 conflict markers + reflog recovery / merge vs rebase)
 ```
 
 ---
@@ -3104,9 +3105,105 @@ What the script should actually fix is **spaces, brackets, full-width digits, re
 
 > 📌 **The serial path has a window**: it works only while the car is still on USB. Once the car drops USB on Day 24 and runs freely, there is no serial port — Day 26 live plotting will have to read Wi-Fi instead. The parsing and CSV-writing logic carries over unchanged; only `serial.Serial()` becomes a socket.
 
+## Day 23 — Git Version Control
+
+> Date: 2026-09-23
+> Status: ✅ practised on the real repo
+>
+> Hardware: none (software-only day)
+> Core: not "how to type git" but "**how to confirm a change is right, and how to recover when it isn't**" — inspection and recovery
+
+Full notes: [`day-23/README.md`](./day-23/README.md)
+
+### A different layer
+
+The Day 23 guide lists `init / add / commit / push / branch / merge / log / diff` and asks for three separate public repos. Reality check:
+
+| Guide asks | Actual state |
+|---|---|
+| `git init` / create repos | This repo has run since early on — 164 commits, `origin` already attached |
+| `add` / `commit` / `push` / `log` | Used daily |
+| `branch` / `merge` / `diff` | **Genuinely unpractised** — a single linear `main` all along |
+| Three separate repos | The single repo already holds other projects; splitting would only fragment the 30-day narrative |
+
+What was actually missing: `add` / `commit` / `push` are **execution**, while "**how do I confirm the change is right**" and "**how do I recover when it isn't**" are separate skills — whether you can catch yourself when something breaks depends entirely on those two.
+
+### A branch is a pointer
+
+```bash
+$ ls -l .git/refs/heads/practice/day23
+41 bytes
+```
+
+Creating a branch copies nothing — it just tags a commit with 40 hex characters. What costs is thinking about merges, not creating branches.
+
+### The two-dot syntax `A..B`
+
+Three questions after a fork, three commands:
+
+```bash
+git log --oneline main..practice/day23   # on the branch, not yet in main
+git log --oneline practice/day23..main   # in main, not yet on the branch
+git diff --stat main practice/day23      # which files moved, and by how much
+```
+
+`A..B` reads as **"in B but not in A"**. `git diff --stat` is the workhorse: given "I changed the config," it shows at a glance whether three unrelated files were touched as well.
+
+### The fourth section in a conflict marker
+
+Besides `<<<<<<<` / `=======` / `>>>>>>>` there is a `|||||||` section — the **merge base**, showing what the shared ancestor said. Off by default:
+
+```bash
+git config --global merge.conflictStyle diff3
+```
+
+Without it you cannot tell whether the other side **added** something or **deleted yours** — the former usually means keep both, the latter needs thought.
+
+### reflog is the only undo
+
+A deliberate `git reset --hard` made 4 commits vanish from `git log` — but reflog remembered:
+
+```bash
+$ git reflog -8
+d94aa40 HEAD@{0}: reset: moving to d94aa40
+41c40c0 HEAD@{1}: commit (merge): merge: ...
+```
+
+One `git reset --hard 41c40c0` brought them back. **Why doesn't `reset --hard` destroy anything?** It only moves a pointer; the commit objects stay in `.git/objects/`.
+
+> What is genuinely dangerous is **uncommitted working-tree changes** — those are not in reflog. And reflog expires after 90 days by default, so "I lost it three months ago" is not recoverable.
+
+### merge or rebase
+
+```
+merge:   A—B—C—M      two parents, records that a fork happened
+rebase:  A—B—C—D'—E'  straight line, D/E become new commits
+```
+
+rebase **rewrites commits** (hashes change), hence the hard rule: **never rebase commits you have already pushed.** This repo's `main` has stayed linear the whole time, which says a single-developer linear flow needs merge only.
+
+### Verify the cleanup, don't assume it
+
+```bash
+git log --oneline origin/main..main   # empty = no local-only commits
+git log --oneline main..origin/main   # empty = not behind the remote
+```
+
+**`git status` alone is not enough** — it reports a clean tree but not whether you are ahead of or behind the remote.
+
+> `gh auth login` only stores a token locally (`~/.config/gh/hosts.yml` + keychain); it changes nothing on GitHub. The profile repo `GavinHome/GavinHome` already exists, so editing it on Day 29 leaves the avatar / name / bio in Settings untouched.
+
+### What Went Wrong
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Recent commits missing from `git log` | `reset --hard` only moved the pointer | Find the hash in `git reflog`, then reset back |
+| Can't see the original text in a conflict | Default style hides the base | Enable `merge.conflictStyle diff3` |
+| Assumed a clean tree means a clean repo | `git status` never checks the remote | Run `git log main..origin/main` both ways |
+
 ### Next Steps
 
-- **Day 23**: Git version control (Learn Git Branching + repos for earlier weeks + `.gitignore`)
+- **Day 24**: README writing and project presentation (Fritzing / draw.io schematics + GIF demo); buck converter arrives and the car goes off USB
 
 ---
 ## Learning Journal Policy

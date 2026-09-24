@@ -9,7 +9,7 @@
 | [`教程/`](./%E6%95%99%E7%A8%8B/) | 1–6 月文章式原始学习计划 |
 | [`进度/`](./%E8%BF%9B%E5%BA%A6/) | 第 1 月 30 天逐日实践指南 + 专业术语中英文对照表 |
 | [`docs/`](./docs/) | ESP32-S3 开发板原始资料（原理图 + 引脚图）+ 元器件实物照片 [`元器件.jpg`](./docs/元器件.jpg) + [`小车模块分工表.md`](./docs/%E5%B0%8F%E8%BD%A6%E6%A8%A1%E5%9D%97%E5%88%86%E5%B7%A5%E8%A1%A8.md)（Day 17-21 各模块在整车中的角色） |
-| [`day-01/`](./day-01/) … [`day-22/`](./day-22/) | 每日学习内容（截图、电路文件、代码与笔记） |
+| [`day-01/`](./day-01/) … [`day-23/`](./day-23/) | 每日学习内容（截图、电路文件、代码与笔记） |
 
 > 📌 **代码约定（Day 10 起）**：后续实验代码默认写成和板载彩灯并行的 `loop()`（一行 `RgbCycle::update()` + 各自 `millis()` 判断），不再单独交"只有灯"的草图。
 
@@ -64,7 +64,8 @@ robotics-engineer-learning-tutorial/
 └── day-19/                      ← 第 19 天：直流电机与 TB6612FNG 驱动（H 桥真值表 + 正反转/刹车/滑行 + PWM 调速）
 └── day-20/                      ← 第 20 天：SG90 舵机控制（50Hz 脉冲协议 + 角度定位 + 5V 独立供电）
 ├── day-21/                      ← 第 21 天：智能小车底盘（双电机差速转向 + 运动函数 + 超声波避障状态机）
-└── day-22/                      ← 第 22 天：Python 基础回顾（串口 JSON 遥测 → CSV / 配置校验 / 批量重命名）
+├── day-22/                      ← 第 22 天：Python 基础回顾（串口 JSON 遥测 → CSV / 配置校验 / 批量重命名）
+└── day-23/                      ← 第 23 天：Git 版本控制（双点语法督察 + diff3 冲突标记 + reflog 救回 / merge 与 rebase 取舍）
 ```
 
 ---
@@ -3134,9 +3135,105 @@ timestamp,ms,dist_cm,adc_raw,voltage
 
 > 📌 **串口这条路有窗口期**：现在车还插着 USB 所以能采；Day 24 车脱离 USB 独立跑之后就没有串口了，Day 26 的实时绘图届时得改成收 Wi-Fi 数据。解析与落 CSV 逻辑原样复用，只需把 `serial.Serial()` 换成 socket 读。
 
+## 第 23 天 — Git 版本控制
+
+> 日期：2026-09-23
+> 状态：✅ 已在真实仓库上实操完毕
+>
+> 硬件：无（纯软件日）
+> 核心：不练"怎么敲 git"，练"**怎么确认改动是对的、搞砸了怎么捞回来**"——督察与救火
+
+完整笔记：[`day-23/README.md`](./day-23/README.md)
+
+### 练的是另外一层
+
+指南 Day 23 列了 `init / add / commit / push / branch / merge / log / diff`，还要"为前两周项目建三个公开仓库"。对照现实：
+
+| 指南要求 | 实际情况 |
+|---|---|
+| `git init` / 建仓库 | 这个仓库早已在用，164 个 commit，已挂 `origin` |
+| `add` / `commit` / `push` / `log` | 天天在用 |
+| `branch` / `merge` / `diff` | **真没练过**——一直单分支 `main` 直线提交 |
+| 建 3 个独立仓库 | 单仓已含其他项目，公开数量够；拆仓只会割裂 30 天主线 |
+
+真正缺的那层是：`add` / `commit` / `push` 是**执行**，而"**怎么确认改动是对的**"和"**搞砸了怎么捞回来**"是另一回事——出了事能不能自己兜住，全看这两样。
+
+### 分支就是一个指针
+
+```bash
+$ ls -l .git/refs/heads/practice/day23
+41 bytes
+```
+
+开分支不复制任何文件——只是在某个 commit 上贴了个 40 字符的标签。成本高的是合并时的思考，不是创建。
+
+### 双点语法 `A..B`
+
+分叉之后三个问题，三条命令：
+
+```bash
+git log --oneline main..practice/day23   # 分支有而 main 没有的（待合入）
+git log --oneline practice/day23..main   # main 有而分支没有的（我落后了）
+git diff --stat main practice/day23      # 总共动了哪些文件、各动多少行
+```
+
+`A..B` 读成 **"B 有而 A 没有"**。`git diff --stat` 是这套里最常用的：一句"我改了配置"，配上这个就能看出是不是顺手动了三个不相干的文件。
+
+### 冲突标记里的第四段
+
+冲突文件除了 `<<<<<<<` / `=======` / `>>>>>>>`，还能多一段 `|||||||` —— **分叉基点**，说明"两边共同的祖先在这行长什么样"。默认不开：
+
+```bash
+git config --global merge.conflictStyle diff3
+```
+
+价值在于：不知道基点就判断不出对方是**新增**还是**删掉了你的东西**——前者多半两边都留，后者要想一下。
+
+### reflog 是唯一的后悔药
+
+最有演示价值的一段。故意把 `main` 硬退回去，4 个 commit 从 `git log` 里消失——但 reflog 记得：
+
+```bash
+$ git reflog -8
+d94aa40 HEAD@{0}: reset: moving to d94aa40
+41c40c0 HEAD@{1}: commit (merge): merge: ...
+```
+
+捞回来就一行 `git reset --hard 41c40c0`。**为什么 `reset --hard` 删不掉东西？** 删的只是指针，commit 对象还在 `.git/objects/` 里。
+
+> 真正危险的是**没 commit 过的工作区改动**——那部分 reflog 里没有。另外 reflog 默认 90 天过期，"三个月前误删现在还能救"不成立。
+
+### merge 还是 rebase
+
+```
+merge 后：  A—B—C—M      M 两个父节点，保留分叉事实
+rebase 后： A—B—C—D'—E'  一条直线，D/E 变成新 commit
+```
+
+rebase **改写了 commit**（hash 变了），所以硬规矩是：**已经 push 出去给别人看的 commit 不要 rebase。** 本项目 main 一直是单条直线，说明单人线性推进下 merge 就够。
+
+### 清理要验证，不能假设
+
+```bash
+git log --oneline origin/main..main   # 空 = 没有本地独有 commit
+git log --oneline main..origin/main   # 空 = 没有落后远端
+```
+
+**只看 `git status` 不够**——它能说工作区干净，说不了本地多推了还是少拉了。
+
+> `gh auth login` 只在本机存 token（`~/.config/gh/hosts.yml` + 钥匙串），不会改动 GitHub 上的任何东西。Profile 仓库 `GavinHome/GavinHome` 已存在，Day 29 改它不影响 Settings 里的头像/昵称/bio。
+
+### 踩的坑
+
+| 现象 | 原因 | 解决 |
+|---|---|---|
+| `git log` 看不到刚做的 commit | `reset --hard` 只移指针 | `git reflog` 找 hash 再 reset 回去 |
+| 冲突里看不到原来的内容 | 默认格式不带基点 | 开 `merge.conflictStyle diff3` |
+| 以为工作区干净就等于仓库干净 | `git status` 不对比远端 | 双向 `git log main..origin/main` |
+
 ### 下一步
 
-- **Day 23**：Git 版本控制（Learn Git Branching + 为前几周项目建仓库 + `.gitignore`）
+- **Day 24**：README 写作与项目展示（Fritzing / draw.io 画电路图 + GIF 演示）；降压模块到货，车脱离 USB 独立供电
 
 ---
 
