@@ -2800,7 +2800,7 @@ Trig   ──────  GPIO4
 Echo   ──────  GPIO5
 ```
 
-Three things matter: **common ground** (battery −, ESP32 GND, TB6612 GND and HC-SR04 GND all tied; miss it and the motors do not move while ranging reads 0); **VM and VCC are separate supplies** (motor current comes from the battery, not the board); **the box holds 4 cells = 6 V**, for the reason in the next section.
+Three things matter: **common ground** (battery −, buck GND, ESP32 GND, TB6612 GND and HC-SR04 GND all tied; miss it and the motors do not move while ranging reads 0); **VM and VCC are separate supplies** (motor current comes from the battery, not the board); **the box holds 4 cells = 6 V**, for the reason in the next section.
 
 ### Where the duty comes from: 6 V supply, half duty
 
@@ -2942,7 +2942,7 @@ Both pass (`--fqbn esp32:esp32:esp32s3`) with no new libraries.
 
 ### Final power: cutting the USB cord (MP1584EN buck module)
 
-The ESP32 runs off USB right now, so the car is leashed. Once the buck module arrives, wire it like this and unplug:
+Landed on Day 24: the 6 V holder splits into two paths — motors straight, only the ESP32 bucked — and the car runs on the tiled floor with the USB cable unplugged. Wiring:
 
 ```
 6 V battery box
@@ -2950,38 +2950,34 @@ The ESP32 runs off USB right now, so the car is leashed. Once the buck module ar
    │
    └──► MP1584EN IN ──► OUT 5 V ──► ESP32 "5V" pin
                                      │
-   battery − ──┬── TB6612 GND ───────┴── ESP32 GND   (one common ground)
+   battery − ──┬── buck GND ──┬── TB6612 GND ───────┴── ESP32 GND   (one common ground)
 ```
 
-⏳ Waiting for the buck module (ordered 2026-09-22, in transit):
+Two steps in that wiring are easy to get wrong:
 
-1. Measure the MP1584EN output with a multimeter and confirm it really is 5 V before wiring it up
-2. Take two taps off the 6 V battery box: one into TB6612 VM, one into the buck module IN
-3. Buck OUT 5 V → ESP32 "5V", negative → GND, **one common ground**
-4. Keep USB plugged in until the voltages check out; the serial monitor dropping out after unplug is normal
-5. Run the car on the floor, re-measure `TRIM_RIGHT` and the voltage sag
+1. Take two taps off the 6 V battery box: one into TB6612 VM, one into the buck module IN
+2. Buck OUT 5 V → ESP32 "5V", negative → GND, **one common ground**
+3. Keep USB plugged in until the voltages check out; the serial monitor dropping out after unplug is normal
 
 > ⚠️ **The motors must not run through the buck module.** Two TT motors starting together draw more stall current than the MP1584EN's 3 A; the module's over-current protection would hiccup — exactly the "supply can't deliver" trap from §三. So 6 V splits into **two parallel paths**: motors straight, only the ESP32 bucked.
 >
 > ⚠️ **The grounds must be common**, or the TB6612 PWM signals have no return path and the motors ignore every command.
 
-> 📌 Due by Day 27-28 at the latest — those two days build the Wi-Fi-controlled car, which has to run untethered anyway.
-
 ### Why TRIM_RIGHT can't be calibrated yet
 
-Calibration needs the car to **run free for at least 2 m**, but the USB cable both powers and tethers it: the cable drags, that drag dominates any drift measurement, and the trim value you'd get out of it is meaningless. Free running requires dropping USB, and dropping USB removes the serial port.
+Calibration needs the car to **run free for at least 2 m**. The USB cable's problem isn't power, it's the tether: the cable drags, that drag dominates any drift measurement, and the trim value you'd get out of it is meaningless. Since Day 24 the car runs free on the buck module, but free running produces no serial data; plug in USB to read data and the cable tethers the car again.
 
 So the real question isn't "when is there time to calibrate" — it's **how data gets back to the computer once USB is gone**. The answer is **Wi-Fi** (Day 25): the ESP32-S3 has Wi-Fi built in, it joins the home router or makes its own AP, and Python reads it over a socket — no extra hardware. BLE needs `bleak` installed, a Bluetooth serial module means another purchase, and there's no SD card module on hand.
 
 ```
-Day 24  MP1584EN arrives → car drops USB (free to run, but no data channel)
+Day 24  buck module wired → car runs free on battery (but no data channel)
 Day 25  Wi-Fi works      → data can reach the computer
 Day 25+ calibration possible → send trim down, read the trajectory back
 ```
 
 > 📌 Calibration **blocks nothing**: drift only makes straight running crooked; obstacle avoidance works fine.
 
-> 📌 Knock-on effect: the "serial live plotting" in the Day 26 guide may well have no serial port left by then — once the car drops USB, live plotting has to read Wi-Fi too. The parsing and CSV-writing logic in the Day 22 `serial_logger.py` needs no change, only `serial.Serial()` swapped for a socket. **ADC2 (GPIO11-20) conflicts with Wi-Fi, so from Day 25 all analog reads go to ADC1 (GPIO1-10).**
+> 📌 Knock-on effect: the car is already off USB, so the "serial live plotting" in the Day 26 guide has no serial port left — live plotting can only read Wi-Fi. The parsing and CSV-writing logic in the Day 22 `serial_logger.py` needs no change, only `serial.Serial()` swapped for a socket. **ADC2 (GPIO11-20) conflicts with Wi-Fi, so from Day 25 all analog reads go to ADC1 (GPIO1-10).**
 
 ---
 
@@ -3104,7 +3100,7 @@ What the script should actually fix is **spaces, brackets, full-width digits, re
 
 ⏳ **Live serial** capture pending: flash the telemetry sketch, then `./.venv/bin/python day-22/serial_logger.py --n 300`. Until then [`sensor_log.csv`](./day-22/sensor_log.csv) comes from `log_to_csv.py` parsing the Day 21 saved log — the numbers are real, but they were not read from serial today.
 
-> 📌 **The serial path has a window**: it works only while the car is still on USB. Once the car drops USB on Day 24 and runs freely, there is no serial port — Day 26 live plotting will have to read Wi-Fi instead. The parsing and CSV-writing logic carries over unchanged; only `serial.Serial()` becomes a socket.
+> 📌 **The serial path has a window, and that window is now shut**: since Day 24 the car runs free on battery through the buck module, so free running leaves no serial port; capturing serial means plugging in USB, and the cable tethers the car again. Day 26 live plotting can only read Wi-Fi. The parsing and CSV-writing logic carries over unchanged; only `serial.Serial()` becomes a socket.
 
 ## Day 23 — Git Version Control
 
@@ -3249,7 +3245,10 @@ Wheels off the ground (earlier verification): [`超声波避障演示.gif`](./da
 | DZQJ 2WD acrylic chassis | TT motors 1:48 ×2, wheels ×2, casters ×2 | 1 | Body |
 | TB6612FNG dual H-bridge module | — | 1 | Drives both motors, has an STBY enable pin |
 | HC-SR04 ultrasonic module | 2 ~ 400 cm | 1 | Forward ranging |
-| Battery holder | 4×AA = 6 V | 1 | **Motors only**, into the TB6612's `VM` |
+| Battery holder | 4×AA = 6 V | 1 | **Splits into two paths**: motors straight into the TB6612's `VM`; the other path into the buck module |
+| MP1584EN buck module | fixed 5 V output, 3 A | 1 | Drops the battery's 6 V to 5 V for the board's "5V" pin. **The motors do not go through it** |
+
+The car now runs off the battery, no USB needed: the 6 V holder feeds two parallel paths — motors direct, only the board bucked — with the battery negative, buck GND, TB6612 GND, ESP32 GND and HC-SR04 GND commoned. Unplugging USB drops the serial monitor, which is expected.
 
 **Deliberately omitted**: MPU-6050 (a two-wheel + caster chassis needs no attitude to drive) and SG90 servo (Day 27 pan-tilt). One fewer set of wires is one fewer failure point.
 
@@ -3273,7 +3272,7 @@ Wheels off the ground (earlier verification): [`超声波避障演示.gif`](./da
 
 ![Robot car wiring diagram](./day-24/智能小车接线图.png)
 
-Three things you cannot get wrong: **ground common at four points** (battery negative / ESP32 GND / TB6612 GND / HC-SR04 GND — miss it and the motors don't turn while ranging reads a constant 0); **`VM` and `VCC` are two separate paths** (motor current comes from the battery and never crosses the board; tying them together collapses 3V3 the moment the motors spin); **`STBY` tied to 3V3, held high** (pull it low and the whole TB6612 sleeps).
+Three things you cannot get wrong: **ground common at five points** (battery negative / buck GND / ESP32 GND / TB6612 GND / HC-SR04 GND — miss it and the motors don't turn while ranging reads a constant 0); **`VM` and `VCC` are two separate paths** (motor current comes from the battery and never crosses the board; tying them together collapses 3V3 the moment the motors spin); **`STBY` tied to 3V3, held high** (pull it low and the whole TB6612 sleeps).
 
 ### Code
 
@@ -3337,8 +3336,6 @@ The most valuable debugging move was **finding a control pair that differs by on
 ### Next Steps
 
 - **Day 25**: first Wi-Fi on the ESP32-S3 (join 2.4 GHz, print the IP, HTTP request, run a web server)
-
-> 📌 The Day 24 plan of "buck converter arrives, car goes off USB" did not happen — the MP1584EN is still in transit (ordered 2026-09-22). When it lands: measure the output with a multimeter and confirm 5 V before wiring it to the ESP32「5V」pin; motors stay on the battery's 6 V and never go through the buck; battery negative ties to board GND.
 
 ---
 ## Learning Journal Policy

@@ -227,7 +227,7 @@ git config --global merge.conflictStyle diff3
 ## 九、下一步
 
 - **Day 24**：README 写作与项目展示（Fritzing / draw.io 画电路图 + GIF 演示）
-- 📌 Day 24 降压模块到货，车要脱离 USB 独立供电
+- 📌 Day 24 降压模块已接好，车脱离 USB 独立供电（电池 6V 分两路，电机直连、开发板走降压）
 
 ---
 
