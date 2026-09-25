@@ -3212,7 +3212,7 @@ git log --oneline main..origin/main   # empty = not behind the remote
 > Hardware: nothing new (reuses the Day 21 car: ESP32-S3 + TB6612FNG + HC-SR04 + two TT motors + 4×AA holder)
 > Core: a standalone project README for the car — intro / hardware / wiring / code / test results / pitfalls / next steps
 > Project README: [`day-24/README.md`](./day-24/README.md)
-> Demo: [`超声波避障演示.gif`](./day-24/超声波避障演示.gif) ｜ Wiring: [`智能小车接线图.png`](./day-24/智能小车接线图.png) ｜ Asset build log: [`素材制作过程.md`](./day-24/素材制作过程.md)
+> Demo: [`智能小车落地跑.gif`](./day-24/智能小车落地跑.gif) (driving on the floor) ｜ [`超声波避障演示.gif`](./day-24/超声波避障演示.gif) (wheels off the ground) ｜ Build photo: [`智能小车实物图.jpg`](./day-24/智能小车实物图.jpg) ｜ Wiring: [`智能小车接线图.png`](./day-24/智能小车接线图.png) ｜ Asset build log: [`素材制作过程.md`](./day-24/素材制作过程.md)
 
 Full notes: [`day-24/README.md`](./day-24/README.md)
 
@@ -3232,9 +3232,14 @@ The key point: **「Pitfalls」in the template means the pitfalls of the car pro
 
 A two-wheel differential-drive car that dodges obstacles on its own with a single front HC-SR04: while cruising it ranges every 100 ms, and below 15 cm it reverses → turns → commits forward, then resumes judging. If the obstacle never moves away, it keeps circling rather than getting stuck.
 
-![Ultrasonic avoidance demo](./day-24/超声波避障演示.gif)
+![Build photo](./day-24/智能小车实物图.jpg)
 
-Demo: [`超声波避障演示.gif`](./day-24/超声波避障演示.gif) (4 s, 440×248, 8 fps, 1.50 MB)
+Build photo: [`智能小车实物图.jpg`](./day-24/智能小车实物图.jpg) (1050×1400, 346 KB)
+
+![Car driving on the floor](./day-24/智能小车落地跑.gif)
+
+On the floor: [`智能小车落地跑.gif`](./day-24/智能小车落地跑.gif) (3 s, 440×782, 6 fps, 2.04 MB) — the car runs on a tiled floor, reverses → turns → commits forward as it nears a cardboard box
+Wheels off the ground (earlier verification): [`超声波避障演示.gif`](./day-24/超声波避障演示.gif) (4 s, 440×248, 8 fps, 1.50 MB)
 
 ### Hardware
 
