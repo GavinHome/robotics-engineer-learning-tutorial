@@ -2188,7 +2188,7 @@ Measured point by point on the 2MΩ range — result: **OL**.
 
 ### Desoldering Technique
 
-✅ Done on an ESP32-S3 dev board: [`电烙铁和吸锡器拆焊_正面.png`](./day-16/电烙铁和吸锡器拆焊_正面.png), [`电烙铁和吸锡器拆焊_背面.png`](./day-16/电烙铁和吸锡器拆焊_背面.png)
+✅ Done on an ESP32-S3 dev board — parts I had soldered myself: [`电烙铁和吸锡器拆焊_正面.png`](./day-16/电烙铁和吸锡器拆焊_正面.png), [`电烙铁和吸锡器拆焊_背面.png`](./day-16/电烙铁和吸锡器拆焊_背面.png)
 
 - One hand melts with the iron, the other sucks — **cock the plunger before heating**
 - **Add solder to remove solder**: old solder has no flux left and flows poorly
@@ -2201,7 +2201,7 @@ Measured point by point on the 2MΩ range — result: **OL**.
 | 5 resistors in series on perfboard | ✅ Kept (330/1k/2k/1k/220) | Switched to **different values** so the cumulative sum is unique and locates the break |
 | ESP32-S3 header → breakout board (44 pins) | ⏭️ **Skipped** | The dev board ships with headers already soldered; re-soldering teaches nothing, and one bridge across 44 dense pins could kill the board |
 | USB Type-C → custom power board | ⏭️ **Skipped** | No Type-C receptacle purchased; it's an extension. The dev board's own USB powers everything for now |
-| Desoldering practice | ✅ Done | Practised on an ESP32-S3 dev board; the five resistors stay on the perfboard as a Day 16 record |
+| Desoldering practice | ✅ Done | Practised on an ESP32-S3 dev board, desoldering parts I had soldered myself; the five resistors stay on the perfboard as a Day 16 record |
 
 > Principle: **skip any component you can skip.** Neither skipped item blocks the Day 17–21 ultrasonic / IMU / motor wiring.
 
