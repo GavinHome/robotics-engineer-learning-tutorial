@@ -2093,7 +2093,7 @@ Both must pass.
 ## Day 16 — Through-Hole Soldering (5 Resistors in Series)
 
 > Date: 2026-09-17
-> Status: 🟡 **In progress** (stage 1 accepted 2026-09-18: ① no cold joints ✅ (whole chain 4.5kΩ, segments add up) ② no shorts ✅ (joint ↔ adjacent hole = OL); desoldering technique recorded, awaiting a real job; **only ③ joint finish remains ⚠️ too little solder + it climbed the lead — touch-up optional**)
+> Status: 🟡 **In progress** (stage 1 accepted 2026-09-18: ① no cold joints ✅ (whole chain 4.5kΩ, segments add up) ② no shorts ✅ (joint ↔ adjacent hole = OL) ③ desoldering ✅ done on a dev board; **only joint finish remains ⚠️ too little solder + it climbed the lead — touch-up optional**)
 >
 > Hardware: 40W soldering iron kit + DT9205A PRO multimeter + 5×7 cm double-sided perfboard + resistors 330Ω/1kΩ/2kΩ/1kΩ/220Ω
 > Core: perfboard layout → shared-hole series chain → elevated 3 mm lead bend → segment-sum self-check
@@ -2101,7 +2101,7 @@ Both must pass.
 
 Full notes: [`day-16/README.md`](./day-16/README.md)
 
-**Photos**: [`五个电阻串联焊接.png`](./day-16/五个电阻串联焊接.png) (front), [`五个电阻串联背面焊接点.png`](./day-16/五个电阻串联背面焊接点.png) (solder side)
+**Photos**: [`五个电阻串联焊接.png`](./day-16/五个电阻串联焊接.png) (front), [`五个电阻串联背面焊接点.png`](./day-16/五个电阻串联背面焊接点.png) (solder side), [`电烙铁和吸锡器拆焊_正面.png`](./day-16/电烙铁和吸锡器拆焊_正面.png) (desoldering, front), [`电烙铁和吸锡器拆焊_背面.png`](./day-16/电烙铁和吸锡器拆焊_背面.png) (desoldering, solder side)
 
 ### Goal
 
@@ -2188,7 +2188,7 @@ Measured point by point on the 2MΩ range — result: **OL**.
 
 ### Desoldering Technique
 
-Follow this when a real job comes up (wrong hole, reclaiming parts, Day 21 rework) — no separate practice session.
+✅ Done on an ESP32-S3 dev board: [`电烙铁和吸锡器拆焊_正面.png`](./day-16/电烙铁和吸锡器拆焊_正面.png), [`电烙铁和吸锡器拆焊_背面.png`](./day-16/电烙铁和吸锡器拆焊_背面.png)
 
 - One hand melts with the iron, the other sucks — **cock the plunger before heating**
 - **Add solder to remove solder**: old solder has no flux left and flows poorly
@@ -2201,7 +2201,7 @@ Follow this when a real job comes up (wrong hole, reclaiming parts, Day 21 rewor
 | 5 resistors in series on perfboard | ✅ Kept (330/1k/2k/1k/220) | Switched to **different values** so the cumulative sum is unique and locates the break |
 | ESP32-S3 header → breakout board (44 pins) | ⏭️ **Skipped** | The dev board ships with headers already soldered; re-soldering teaches nothing, and one bridge across 44 dense pins could kill the board |
 | USB Type-C → custom power board | ⏭️ **Skipped** | No Type-C receptacle purchased; it's an extension. The dev board's own USB powers everything for now |
-| Desoldering practice | 📌 **Technique recorded, no separate session** | Solder sucker has arrived; do it when a real job comes up (Day 21 rework). The five resistors stay on the board as a Day 16 record |
+| Desoldering practice | ✅ Done | Practised on an ESP32-S3 dev board; the five resistors stay on the perfboard as a Day 16 record |
 
 > Principle: **skip any component you can skip.** Neither skipped item blocks the Day 17–21 ultrasonic / IMU / motor wiring.
 
