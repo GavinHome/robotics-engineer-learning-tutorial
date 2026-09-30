@@ -200,9 +200,10 @@ snprintf(buf, sizeof(buf),
 
 ## 六、下一步
 
-- **Day 26**：Python + ESP32 数据可视化（pyserial 读串口 JSON + matplotlib 实时绘图）
+- **Day 26**：Python 实时遥测绘图。走的是 HTTP 拉 `/data`，不是读串口——车自由跑时没有串口，解析与落 CSV 的逻辑照 Day 22 的写法复用，固件一行没改
+- **Day 27-28**：Wi-Fi 遥控小车综合项目
 
-> 📌 Day 22 那条"串口这条路有窗口期"到 Day 25 就兑现了：车一旦脱离 USB 就没有串口，Day 26 的实时绘图届时改成拉 `/data`，解析与落 CSV 的原样复用。
+> 📌 Day 22 那条"串口这条路有窗口期"到 Day 25 就兑现了：车一旦脱离 USB 就没有串口，Day 26 的实时绘图只能改成拉 `/data`。
 
 ---
 

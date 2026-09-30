@@ -9,7 +9,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`教程/`](./教程/) | Original 1–6 month article-style learning plans |
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
-| [`day-01/`](./day-01/) … [`day-25/`](./day-25/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-26/`](./day-26/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -146,7 +146,8 @@ robotics-engineer-learning-tutorial/
 ├── day-22/                      ← Day 22: Python refresher (serial JSON telemetry → CSV / config validation / batch rename)
 ├── day-23/                      ← Day 23: Git version control (two-dot inspection + diff3 conflict markers + reflog recovery / merge vs rebase)
 ├── day-24/                      ← Day 24: README writing and project presentation (ffmpeg GIF clipping + hand-written SVG wiring diagram + README section order)
-└── day-25/                      ← Day 25: first Wi-Fi on the ESP32-S3 (2.4 GHz join + connect timeout / auto-reconnect + hand-rolled HTTP + TLS + web server)
+├── day-25/                      ← Day 25: first Wi-Fi on the ESP32-S3 (2.4 GHz join + connect timeout / auto-reconnect + hand-rolled HTTP + TLS + web server)
+└── day-26/                      ← Day 26: Python live telemetry plotting (HTTP poll of /data + 60 s rolling window + NaN line breaks + CSV)
 ```
 
 ---
@@ -2978,7 +2979,7 @@ Day 25+ calibration possible → send trim down, read the trajectory back
 
 > 📌 Calibration **blocks nothing**: drift only makes straight running crooked; obstacle avoidance works fine.
 
-> 📌 Knock-on effect: the car is already off USB, so the "serial live plotting" in the Day 26 guide has no serial port left — live plotting can only read Wi-Fi. The parsing and CSV-writing logic in the Day 22 `serial_logger.py` needs no change, only `serial.Serial()` swapped for a socket. **ADC2 (GPIO11-20) conflicts with Wi-Fi, so from Day 25 all analog reads go to ADC1 (GPIO1-10).**
+> 📌 Knock-on effect: the car is already off USB, so the "serial live plotting" in the Day 26 guide has no serial port left — live plotting can only read Wi-Fi. The parsing and CSV-writing logic in the Day 22 `serial_logger.py` needs no change, only `serial.Serial()` swapped for an HTTP fetch of `/data`. **ADC2 (GPIO11-20) conflicts with Wi-Fi, so from Day 25 all analog reads go to ADC1 (GPIO1-10).**
 
 ---
 
@@ -3101,7 +3102,7 @@ What the script should actually fix is **spaces, brackets, full-width digits, re
 
 ⏳ **Live serial** capture pending: flash the telemetry sketch, then `./.venv/bin/python day-22/serial_logger.py --n 300`. Until then [`sensor_log.csv`](./day-22/sensor_log.csv) comes from `log_to_csv.py` parsing the Day 21 saved log — the numbers are real, but they were not read from serial today.
 
-> 📌 **The serial path has a window, and that window is now shut**: since Day 24 the car runs free on battery through the buck module, so free running leaves no serial port; capturing serial means plugging in USB, and the cable tethers the car again. Day 26 live plotting can only read Wi-Fi. The parsing and CSV-writing logic carries over unchanged; only `serial.Serial()` becomes a socket.
+> 📌 **The serial path has a window, and that window is now shut**: since Day 24 the car runs free on battery through the buck module, so free running leaves no serial port; capturing serial means plugging in USB, and the cable tethers the car again. Day 26 live plotting can only read Wi-Fi. The parsing and CSV-writing logic carries over unchanged; only `serial.Serial()` becomes an HTTP fetch of `/data`.
 
 ## Day 23 — Git Version Control
 
@@ -3432,11 +3433,92 @@ The sample distribution is worth a look too: nearly all land in 21–31 cm with 
 | Experiment 3 started with an extra potentiometer | Added to give the page a "second sensor", but a hand-turned number carries no information | Removed. The car has only HC-SR04, which alone satisfies the guide's "see sensor data" |
 | ADC2 stops reading once Wi-Fi is on | On the ESP32-S3, ADC2 (GPIO11-20) shares hardware with Wi-Fi | The Day 27-28 battery-voltage monitor must go to ADC1 (GPIO1-10) |
 
+## Day 26 — Python Live Telemetry Plotting
+
+> Date: 2026-09-30
+> Status: ✅ on the real board (44.6 s / 222 polls → plot + CSV)
+>
+> Hardware: nothing new (reuses the Day 21 car: HC-SR04 on GPIO4/5, not one component added)
+> Core: pull Day 25's `/data` down and draw it as a distance curve that scrolls
+> Code: [`day-26/telemetry_plot.py`](./day-26/telemetry_plot.py)
+> Firmware: **Day 25 experiment 3's [`experiment 3 - web server`](./day-25/%E5%AE%9E%E9%AA%8C3-WebServer/) reused unchanged** — `/data` was already a working endpoint, so only the Python side got written
+
+Full notes: [`day-26/README.md`](./day-26/README.md)
+
+### Goal
+
+The guide asks to "open the serial port, read JSON in real time, plot it live". Against reality: since Day 24 the car drives free off USB, and while it is free there is **no serial device** — capturing serial means plugging in USB, and the cable tethers the car again, which defeats the whole point of watching it drive freely. Moving the data channel to Wi-Fi takes *less* work.
+
+| Guide requirement | What I did |
+|---|---|
+| 1. Install pyserial + matplotlib | ✅ matplotlib and requests were already in `.venv`. **pyserial is installed and never used** |
+| 2. Open the serial port, read JSON live | ❌ → HTTP poll of `/data` every 200 ms; parsing / drop handling / CSV writing follow Day 22 |
+| 3. Matplotlib live plotting | ✅ 60 s rolling window + NaN line breaks + PNG saved on stop |
+| 4. Optional: Plotly Dash web dashboard | ⏭️ Skipped — Day 25 experiment 3's page *is* that dashboard |
+
+### The serial path is already shut
+
+```
+serial.Serial('/dev/cu.usbmodemXXX', 115200)   →   requests.get('http://192.168.0.5/data')
+ser.readline()                                 →   r.text
+```
+
+**Not one line of firmware changed.** That `/data` JSON exists *only* on the HTTP channel — serial prints a sentence for humans (`#699 28.0 cm`), so making a machine read JSON over serial would mean editing and reflashing firmware, when a working service is already running on the board. That is why `day-26/` holds a single Python file and no new `.ino`.
+
+Parsing carries over almost untouched: Day 22's `serial_logger.py` accepts "a line starting with `{`"; here it is "a response body starting with `{`". Half-packets exist on the network path too — a board rebooting or Wi-Fi reconnecting can emit half a response, so the filter is mandatory.
+
+### Three things in the guide's code that cannot be copied
+
+**① `d['sensor']` — the field name is wrong.** `/data` calls it `cm`: `{"cm":47.6,"rssi":-18,"up":8521,"n":41839,"ip":"192.168.0.5"}`. Copying it verbatim raises `KeyError`. The lesson: the remote side owns the data contract, so look at what it actually emits before writing a parser.
+
+**② `ax.set_ylim(0, 4095)` — that is an ADC range, not a distance.** 4095 is a 12-bit ADC full scale; HC-SR04 returns centimetres. Hardcoding 4095 turns the plot into a line hugging the x-axis. The upper limit follows the data (`max(known) * 1.15 + 5`) while the lower bound is pinned at 0 — a distance cannot be negative, and auto-scaling would otherwise be dragged into an ugly negative region by a run of −1.
+
+**③ An x-axis that grows forever squashes the curve into a line.** The guide's `set_xlim(0, max(100, len(data)))` packs every sample into one window. Live monitoring wants a **rolling window**: show the last 60 seconds and let the rest slide out. Plus `deque(maxlen=2000)` to bound memory, and sleeping for the remaining interval instead of spinning.
+
+### Two kinds of "no reading": −1 is a conclusion, NaN is not
+
+| Value | Meaning | On the plot | In the CSV |
+|---|---|---|---|
+| `−1.0` | An ultrasound-absorbing surface ahead — the echo is too weak to return inside 6000 µs | line break | keep `−1.0` |
+| NaN | Nothing was sampled at all (network failure / body is not JSON) | line break | left empty |
+
+`−1` **carries information**: it is a valid measurement conclusion, so the CSV must keep the raw value (that is how Day 22 stored it too). But it must not reach the plot. Drawn as-is it gouges a vertical false spike out of the bottom of the curve — it reads as "distance dropped to zero and bounced back", and the reader concludes the car is nose-first into a wall. Break the line, keep the value in the file, and count the two separately:
+
+```
+222 polls: 180 valid, 42 timeouts (absorbing surface), 0 drops (nothing sampled)
+```
+
+### Test results
+
+44.6 seconds against `192.168.0.5`, 222 polls at `--interval 0.2` (matching the firmware's 200 ms measurement interval):
+
+![Live distance curve over Wi-Fi](./day-26/telemetry_plot.png)
+
+**Zero drops**: 222 × 0.2 s = 44.4 s, nothing missed. Pulling a 60-byte JSON across the same LAN is reliable. RSSI stayed between −17 and −22 dBm throughout, as stable as Day 25 recorded.
+
+The curve is not a flat line, and two things are worth a look:
+
+**① The 42 timeouts are not scattered — they come in blocks.** They sit in 5 runs, the longest spanning t=16.41–19.38: **15 consecutive samples all −1, lasting 2.97 s**, while the readings immediately before and after are 48–59 cm. Blocked −1 fits "an absorbing surface appeared ahead" — if it were random noise the −1s would be scattered, not missing for three seconds straight. This is the same physics as the hand-waving in Day 12 and the periodic "out of range" in Day 25's 1132 samples, now for the third time. That block is exactly the NaN gap in the plot.
+
+**② There were 13 excursions below 15 cm, the longest one squatting on the blind-zone edge.** t=36.28–40.68: the reading falls from 42 cm all the way to **2.0 cm**, sits at 2.0–4.6 cm for about 2 seconds, then recovers. The HC-SR04 datasheet's lower limit is 2 cm, so these samples are on the edge of the blind zone — **whether near-field readings can be trusted is a question that needs its own verification** before feeding them to avoidance logic.
+
+Both closing the window and Ctrl+C go through `finally`: close the CSV, then save a PNG. A headless environment cannot press Ctrl+C, so the verification is to **send `SIGINT` to the subprocess** — it surfaces inside the script as `KeyboardInterrupt`, `finally` runs as usual, and the artefacts are identical to stopping by hand.
+
+### Pitfalls
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| The saved PNG's title is a row of tofu boxes and a flood of `Glyph missing from font(s) DejaVu Sans` | The title is Chinese, and matplotlib's default DejaVu Sans has **no CJK glyphs** — matplotlib ships **no** CJK font | `pick_cjk_font()` takes the first available system font (PingFang SC → Heiti SC → …) into `rcParams`, and disables `axes.unicode_minus` (the minus sign is also missing from some CJK fonts) |
+| `--host esp32s3.local` drops nearly every poll | **Resolving the mDNS name alone takes ~5 s**; a direct IP takes 0.1 s | Collect data with `--host 192.168.0.5`; keep the mDNS name for humans opening a browser |
+| `requests.get(..., timeout=2.0)` bought in as a safety net never fires | `getaddrinfo()` is a blocking call and **socket timeouts cannot interrupt it** — measured: a `timeout=2.0` request still ran the full 5.12 s | Slow DNS cannot be fixed with a timeout, only bypassed: use the IP |
+| Running over SSH / a bare terminal, the script exits | No usable display backend, so matplotlib falls back to `agg` | Check the backend at startup and fail loudly on `agg / pdf / svg / …` rather than "running with no window" |
+| Python 3.14 in `.venv` cannot install tkinter | The system ships no tcl/tk development headers | Only *check* the backend, never *force* one: macOS's default `macosx` works, and writing `TkAgg` would break an environment that is fine |
+
 ### Next Steps
 
-- **Day 26**: Python + ESP32 data visualisation (pyserial reading serial JSON + matplotlib live plotting)
+- **Day 27-28**: the Wi-Fi remote-control car capstone. Today's `/data` polling and CSV writing are reused directly
 
-> 📌 The Day 22 note "the serial path has a window" comes true today: with the car off USB there is no serial port, so Day 26 live plotting will pull `/data` instead.
+> 📌 Day 26's script only reads. Remote control needs writing: add a `/cmd` route to the board and let Python send commands down. Both directions share the same HTTP channel — no new transport.
 
 ---
 ## Learning Journal Policy
