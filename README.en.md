@@ -9,7 +9,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`教程/`](./教程/) | Original 1–6 month article-style learning plans |
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
-| [`day-01/`](./day-01/) … [`day-27/`](./day-27/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-28/`](./day-28/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -148,7 +148,8 @@ robotics-engineer-learning-tutorial/
 ├── day-24/                      ← Day 24: README writing and project presentation (ffmpeg GIF clipping + hand-written SVG wiring diagram + README section order)
 ├── day-25/                      ← Day 25: first Wi-Fi on the ESP32-S3 (2.4 GHz join + connect timeout / auto-reconnect + hand-rolled HTTP + TLS + web server)
 ├── day-26/                      ← Day 26: Python live telemetry plotting (HTTP poll of /data + 60 s rolling window + NaN line breaks + CSV)
-└── day-27/                      ← Day 27: Wi-Fi remote-control car (/cmd write route + phone control panel + connection watchdog)
+├── day-27/                      ← Day 27: Wi-Fi remote-control car (/cmd write route + phone control panel + connection watchdog)
+└── day-28/                      ← Day 28: remote control + auto avoidance in one firmware (mode switch + heartbeat semantics extended + demo videos)
 ```
 
 ---
@@ -3632,12 +3633,6 @@ The car was moving with Wi-Fi still connected, and holding a direction held the 
 
 What is left is the back half of the stop path: the watchdog firing once, and pointer capture catching an off-button release once. To fire the watchdog deliberately: lock the screen, leave the browser, or enable airplane mode while driving — within three seconds the car should stop itself, flash red for 720 ms, and the panel's watchdog-stop count should go from 0 to 1.
 
-### Next up
-
-- **Day 28**: press out the rest of the stop path — the watchdog stop (the board stopping itself when the controller disappears) and a finger sliding off the button before lifting (pointer capture). Everything already working today becomes a regression check
-
-> 📌 On Day 28 the car is free, so serial is unavailable all day. The acceptance checks have to work without it: the LED colour, the `tmo` field in `/data`, and a phone screen recording.
-
 ### Pitfalls
 
 | Symptom | Cause | Fix |
@@ -3647,6 +3642,102 @@ What is left is the back half of the stop path: the watchdog firing once, and po
 | Holding a button on the phone scrolled the page | The browser's default gesture was not disabled | `touch-action:none` on the button plus `preventDefault()` in `pointerdown` |
 | The watchdog-stop red flash used `delay(120)` three times | 720 ms without `handleClient()` breaks Day 25's rule and starves the watchdog by exactly that long | Record a `flashUntil` deadline and blink non-blockingly at the end of `loop()` |
 | A client sending only `/cmd?dir=bogus` could keep the car running | `lastCmdMs` refreshed on any `/cmd` arrival | The watchdog only counts accepted commands; the 400 branch returns early |
+
+---
+
+## Day 28 — Phone Remote Control + Auto Avoidance: One Interface, Two Ways to Drive
+
+> Date: 2026-09-30
+> Status: firmware compiles clean, every panel interaction verified on the desktop; **not yet on the car** — acceptance is two demo videos
+>
+> Hardware: nothing new (Day 24's car, not one component added)
+> Core: add an "auto avoid" switch to Day 27's panel and move Day 21's state machine in unchanged
+> Code: [`experiment 1 - phone remote + auto avoid`](./day-28/%E5%AE%9E%E9%AA%8C1-%E6%89%8B%E6%9C%BA%E9%81%A5%E6%8E%A7%E4%B8%8E%E8%87%AA%E5%8A%A8%E9%81%BF%E9%9A%9C/%E5%AE%9E%E9%AA%8C1-%E6%89%8B%E6%9C%BA%E9%81%A5%E6%8E%A7%E4%B8%8E%E8%87%AA%E5%8A%A8%E9%81%BF%E9%9A%9C.ino)
+
+Full notes: [`day-28/README.md`](./day-28/README.md)
+
+### Two behaviours fighting over one set of motors
+
+Day 27's car could only be driven by a human; Day 21's could only drive itself. Both call `drive()` directly. Merging them into one firmware, the first thing to settle is not what the button looks like but **who gets to decide**. The answer has to be one piece of state on the board, `cmdMode`, which powers up as manual — auto is a deliberate click, not the power-on default.
+
+Three things give way to that single source of truth:
+
+- **In auto, direction is accepted but not executed.** `dir` is validated and still answered 200; it just does not reach the motors. Why not reject it with 400? The panel's heartbeat still carries `dir`, so rejecting it would kill the heartbeat and the watchdog would stop the car — a presentation-layer detail bending the safety mechanism out of shape.
+- **Returning to manual must stop the car first.** Otherwise auto's current throttle continues under the manual `cmdDir`, and the symptom is "I left auto but the car kept going".
+- **The LED colours must not collide.** Red belongs to auto's turn only (manual turns are magenta and blue), so with no USB attached you can tell *who is driving* from the light alone.
+
+### The watchdog protects the mode, not just the direction
+
+The most important decision in this firmware. In auto, the obvious move seems to be switching the watchdog off — nobody is steering, why require a heartbeat?
+
+It cannot be off. Here is why: **auto is the only state where the car moves while nobody is in control of it.** You are walking around the room with the car; the moment Wi-Fi drops there is nothing on the phone that can stop it — direction buttons are ignored, the stop button's request never leaves. The same failure in manual mode only means "the car stopped"; in auto it means "the car cruises until the battery dies".
+
+So the heartbeat's meaning widens from "the human is steering" to:
+
+> **The human is still here, and still wants this mode.**
+
+The beat carries on, its payload changing from `dir=fwd` to `beat=1` — a bare "still here" with no parameters. Not one line of the watchdog changed, and what it protects now covers the mode as well as the direction: Wi-Fi drops → brake **and fall back to manual**, so when the phone reconnects it shows a clean stopped car rather than an auto mode nobody can interrupt.
+
+The cost is that auto cannot mean "walk away and let it run": locking the screen or backgrounding the page hides the page, and a hidden page sends `mode=manual`. That is Day 27's rule ("the browser does not guarantee telling you the user let go") extended to modes. Truly unattended running needs the autonomous behaviour moved into the firmware — at which point the car should not depend on a phone staying alive.
+
+### When the heartbeat should run
+
+**In manual, "holding a direction" counts as someone driving; in auto, "auto is on" counts; nothing else sends.** `syncBeat()` is called on press, release, mode switch, and every `/data` return — that last one is the point: **the mode is whatever the board says it is**. If the watchdog kicked the board back to manual last round, the button corrects itself within 500 ms instead of lying that auto is still on while the car sits still.
+
+### Take the stricter measurement cadence, and demote serial to decisions only
+
+Two details had to be re-decided because of the merge:
+
+- **Measurement interval 200 ms → 100 ms.** Day 27 used 200 ms because it only feeds the panel; Day 21 used 100 ms because it drives the avoidance decision. Take the stricter of the two — in manual it just measures twice as often.
+- **Serial stops reporting distance every 500 ms.** The panel shows distance continuously, so serial should carry other things: why it turned, which way, when it stopped, when it was kicked back to manual. Once a human has a better channel, the old one should retreat to reporting decisions.
+
+During the back and turn phases the panel's distance freezes at the value from when avoidance began — mid-turn the sensor sees the wall beside it, which says nothing about whether the road ahead is clear. The speed slider is live in auto too (except the turn phase, which uses a fixed `DUTY_TURN`).
+
+### Test results
+
+**Firmware:** compiles clean, 975804 bytes (74%), no warnings. 38948 bytes more than Day 27 — the state machine, the new mode branch in the router, and the panel switch.
+
+**Control panel (verified on the desktop):** same method — pull the HTML out of `R"rawliteral(...)rawliteral`, stand up a mock `/cmd` and `/data`, drive it with synthetic PointerEvents. This round's mock *lies* (the `mode` in `/data` can be changed at will), specifically to check that the panel defers to the board:
+
+| Scenario | Measured |
+|---|---|
+| Click "auto avoid" | one `mode=auto` plus a heartbeat ✅ |
+| Mock reports "I am in auto" | button reads "in auto", highlighted, status line shows `auto · cruise` ✅ |
+| Press a direction for 600 ms in auto | **not one `dir` sent**, only `beat=1` ✅ |
+| Hide the page while in auto | `mode=manual` immediately, heartbeat stops ✅ |
+| Idle in manual for 700 ms | not one request ✅ |
+| Speed slider | exactly one `speed=160` ✅ |
+| Hold back for 700 ms | `dir=back` ×3 (first plus two beats) ✅ |
+| Release | `dir=stop` immediately, nothing after ✅ |
+
+**Not verified:** the watchdog stop has never fired once (two days of panels showing "0 watchdog stops" — that is "never fired", not "fired correctly"); a finger sliding off the button before lifting; and **the car has not been powered on**, both modes going only as far as the panel.
+
+### Acceptance: two demo videos
+
+The guide's formal deliverable is "a complete GitHub project plus a phone-control demo video":
+
+- **Video 1 · phone remote** (~30 s): open `http://esp32s3.local` → hold ▲ for two seconds and release → it stops; ▼ ► ◀ → drag the slider and compare → the status line follows
+- **Video 2 · auto avoid** (~40 s): click "auto avoid" and it drives off → put a cardboard box in front: back, turn, committed forward, and the avoid count climbs → click again to return to manual and it stops at once
+- **Steal the last unverified check while recording**: while the car is running in auto in video 2, **lock the screen** — it should stop immediately, flash red for 720 ms, and the watchdog-stop count should go to 1. That one shot verifies the watchdog, the auto→manual fallback, and the red flash together
+
+> 📌 While recording, the car is free, so serial is unavailable. Every check has to be visible without it: the LED colour, the panel's status line and avoid count, and the recording itself.
+
+### Pitfalls
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| The phone screen locked while auto was running, and the car stopped | A hidden page fires `visibilitychange` → `mode=manual`, and the watchdog cuts the heartbeat too | By design, not a bug: auto cannot mean "walk away and let it run"; unattended running has to wait for autonomous behaviour in the firmware |
+| Leaving auto left the car moving for a moment | `setMode(MODE_MANUAL)` changed the mode without stopping, so auto's throttle continued under the manual `cmdDir` | The first thing returning to manual does is `stopAll()` |
+| The slider looked broken in auto | `cmdDuty` changed but the state machine only picked it up at the next state transition | `reapplyAutoDuty()` applies it to the current phase at once (except the turn phase) |
+| Rejecting auto's `dir` stopped the car | The panel's heartbeat carries `dir`, so a 400 on it killed the heartbeat | Accept the direction and answer 200; just do not write it to the motors |
+
+### Next up
+
+- **Day 29**: the guide is "GitHub profile and portfolio tidy-up" — review this month's project READMEs (hardware list / wiring diagram / whether the pitfalls are specific / whether there is a demo) and build a GitHub profile README
+
+> 📌 Two carry-overs: the watchdog stop has never fired (locking the screen in video 2 would close it if it works), and a finger sliding off the button before lifting.
+
+---
 
 ---
 ## Learning Journal Policy
