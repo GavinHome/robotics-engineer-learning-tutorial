@@ -1,0 +1,36 @@
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x1 (POWERON),boot:0x8 (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30c0
+entry 0x403c88b8
+Day25 实验1：ESP32-S3 连 Wi-Fi
+芯片型号  : ESP32-S3
+芯片版本  : 2  内核 2 个
+Flash     : 16 MB
+IDF 版本  : v5.5.4
+连接 360WiFi-XXXXXX ...
+....──────── 连接成功 ────────
+SSID      : 360WiFi-XXXXXX
+IP        : 192.168.0.5
+子网掩码  : 255.255.255.0
+网关      : 192.168.0.1
+DNS       : 192.168.0.1
+MAC       : 7C:E8:B1:AA:CE:88
+信道      : 1（2.4G 共 11 个，互不重叠的只有 1/6/11）
+加密方式  : 开放（无密码）
+信号 RSSI : -17 dBm（极好）
+──────────────────────────
+记下这个 IP：192.168.0.5
+
+在线 5s｜RSSI -19 dBm（极好）｜IP 192.168.0.5
+在线 10s｜RSSI -20 dBm（极好）｜IP 192.168.0.5
+在线 15s｜RSSI -18 dBm（极好）｜IP 192.168.0.5
+在线 20s｜RSSI -17 dBm（极好）｜IP 192.168.0.5
+在线 25s｜RSSI -17 dBm（极好）｜IP 192.168.0.5
+在线 30s｜RSSI -18 dBm（极好）｜IP 192.168.0.5
+在线 35s｜RSSI -17 dBm（极好）｜IP 192.168.0.5
+在线 40s｜RSSI -18 dBm（极好）｜IP 192.168.0.5

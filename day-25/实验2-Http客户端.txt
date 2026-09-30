@@ -1,0 +1,217 @@
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x1 (POWERON),boot:0x8 (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30c0
+entry 0x403c88b8
+Day25 实验2：HTTP 客户端
+连接 360WiFi-XXXXXX....
+已连接，IP 192.168.0.5
+
+═══ 方案 A：裸 WiFiClient 手搓 80 端口 ═══
+TCP 已建立
+  │ HTTP/1.1 200 OK
+  │ Date: Wed, 30 Sep 2026 03:40:09 GMT
+  │ Content-Type: application/json
+  │ Content-Length: 232
+  │ Connection: close
+  │ Server: gunicorn/19.9.0
+  │ Access-Control-Allow-Origin: *
+  │ Access-Control-Allow-Credentials: true
+  │ 
+  │ {
+  │ "args": {},
+  │ "headers": {
+  │ "Host": "httpbin.org",
+  │ "User-Agent": "ESP32-S3/1.0",
+  │ "X-Amzn-Trace-Id": "Root=1-6abc8499-115d89b053d01f9f55f92b41"
+  │ },
+  │ "origin": "1.x.x.x",
+  │ "url": "http://httpbin.org/get"
+  │ }
+共 421 字节，连接已关闭
+
+═══ 方案 B：HTTPClient + TLS（443 端口）═══
+HTTP 状态码: 200
+响应体 296 字节：
+{
+  "args": {}, 
+  "headers": {
+    "Accept-Encoding": "identity;q=1,chunked;q=0.1,*;q=0", 
+    "Host": "httpbin.org", 
+    "User-Agent": "ESP32HTTPClient", 
+    "X-Amzn-Trace-Id": "Root=1-6abc849c-62bd210a3cf446017ebc6dee"
+  }, 
+  "origin": "1.x.x.x", 
+  "url": "https://httpbin.org/get"
+}
+
+→ 这条请求在公网上看到的来源是：1.x.x.x
+当前剩余堆内存: 217092 字节
+
+──── 第 1 次轮询（已运行 15s）────
+
+═══ 方案 B：HTTPClient + TLS（443 端口）═══
+HTTP 状态码: 200
+响应体 296 字节：
+{
+  "args": {}, 
+  "headers": {
+    "Accept-Encoding": "identity;q=1,chunked;q=0.1,*;q=0", 
+    "Host": "httpbin.org", 
+    "User-Agent": "ESP32HTTPClient", 
+    "X-Amzn-Trace-Id": "Root=1-6abc84a7-727ed3624914369b777554c0"
+  }, 
+  "origin": "1.x.x.x", 
+  "url": "https://httpbin.org/get"
+}
+
+→ 这条请求在公网上看到的来源是：1.x.x.x
+当前剩余堆内存: 216992 字节
+
+──── 第 2 次轮询（已运行 30s）────
+
+═══ 方案 B：HTTPClient + TLS（443 端口）═══
+HTTP 状态码: 200
+响应体 296 字节：
+{
+  "args": {}, 
+  "headers": {
+    "Accept-Encoding": "identity;q=1,chunked;q=0.1,*;q=0", 
+    "Host": "httpbin.org", 
+    "User-Agent": "ESP32HTTPClient", 
+    "X-Amzn-Trace-Id": "Root=1-6abc84b6-2fe3ea9b7c8cf0bb743270ab"
+  }, 
+  "origin": "1.x.x.x", 
+  "url": "https://httpbin.org/get"
+}
+
+→ 这条请求在公网上看到的来源是：1.x.x.x
+当前剩余堆内存: 216960 字节
+
+──── 第 3 次轮询（已运行 45s）────
+
+═══ 方案 B：HTTPClient + TLS（443 端口）═══
+HTTP 状态码: 200
+响应体 296 字节：
+{
+  "args": {}, 
+  "headers": {
+    "Accept-Encoding": "identity;q=1,chunked;q=0.1,*;q=0", 
+    "Host": "httpbin.org", 
+    "User-Agent": "ESP32HTTPClient", 
+    "X-Amzn-Trace-Id": "Root=1-6abc84c5-77ebe9895567f26c35f91d0f"
+  }, 
+  "origin": "1.x.x.x", 
+  "url": "https://httpbin.org/get"
+}
+
+→ 这条请求在公网上看到的来源是：1.x.x.x
+当前剩余堆内存: 216972 字节
+
+──── 第 4 次轮询（已运行 60s）────
+
+═══ 方案 B：HTTPClient + TLS（443 端口）═══
+HTTP 状态码: 200
+响应体 296 字节：
+{
+  "args": {}, 
+  "headers": {
+    "Accept-Encoding": "identity;q=1,chunked;q=0.1,*;q=0", 
+    "Host": "httpbin.org", 
+    "User-Agent": "ESP32HTTPClient", 
+    "X-Amzn-Trace-Id": "Root=1-6abc84d4-20be5c6807ac6c2c04444f72"
+  }, 
+  "origin": "1.x.x.x", 
+  "url": "https://httpbin.org/get"
+}
+
+→ 这条请求在公网上看到的来源是：1.x.x.x
+当前剩余堆内存: 216988 字节
+
+──── 第 5 次轮询（已运行 75s）────
+
+═══ 方案 B：HTTPClient + TLS（443 端口）═══
+HTTP 状态码: 200
+响应体 296 字节：
+{
+  "args": {}, 
+  "headers": {
+    "Accept-Encoding": "identity;q=1,chunked;q=0.1,*;q=0", 
+    "Host": "httpbin.org", 
+    "User-Agent": "ESP32HTTPClient", 
+    "X-Amzn-Trace-Id": "Root=1-6abc84e3-39e85d756ed22b820ee071d5"
+  }, 
+  "origin": "1.x.x.x", 
+  "url": "https://httpbin.org/get"
+}
+
+→ 这条请求在公网上看到的来源是：1.x.x.x
+当前剩余堆内存: 216968 字节
+
+──── 第 6 次轮询（已运行 90s）────
+
+═══ 方案 B：HTTPClient + TLS（443 端口）═══
+HTTP 状态码: 200
+响应体 296 字节：
+{
+  "args": {}, 
+  "headers": {
+    "Accept-Encoding": "identity;q=1,chunked;q=0.1,*;q=0", 
+    "Host": "httpbin.org", 
+    "User-Agent": "ESP32HTTPClient", 
+    "X-Amzn-Trace-Id": "Root=1-6abc84f2-0d2e54bb624aabfc7c937df9"
+  }, 
+  "origin": "1.x.x.x", 
+  "url": "https://httpbin.org/get"
+}
+
+→ 这条请求在公网上看到的来源是：1.x.x.x
+当前剩余堆内存: 216976 字节
+
+──── 第 7 次轮询（已运行 105s）────
+
+═══ 方案 B：HTTPClient + TLS（443 端口）═══
+HTTP 状态码: 200
+响应体 296 字节：
+{
+  "args": {}, 
+  "headers": {
+    "Accept-Encoding": "identity;q=1,chunked;q=0.1,*;q=0", 
+    "Host": "httpbin.org", 
+    "User-Agent": "ESP32HTTPClient", 
+    "X-Amzn-Trace-Id": "Root=1-6abc8502-732369bf54e5a356619be63d"
+  }, 
+  "origin": "1.x.x.x", 
+  "url": "https://httpbin.org/get"
+}
+
+→ 这条请求在公网上看到的来源是：1.x.x.x
+当前剩余堆内存: 216984 字节
+
+──── 第 8 次轮询（已运行 120s）────
+
+═══ 方案 B：HTTPClient + TLS（443 端口）═══
+HTTP 状态码: 200
+响应体 296 字节：
+{
+  "args": {}, 
+  "headers": {
+    "Accept-Encoding": "identity;q=1,chunked;q=0.1,*;q=0", 
+    "Host": "httpbin.org", 
+    "User-Agent": "ESP32HTTPClient", 
+    "X-Amzn-Trace-Id": "Root=1-6abc8511-1e5cca1e59b7cddb4ff5b889"
+  }, 
+  "origin": "1.x.x.x", 
+  "url": "https://httpbin.org/get"
+}
+
+→ 这条请求在公网上看到的来源是：1.x.x.x
+当前剩余堆内存: 217040 字节
+
+──── 第 9 次轮询（已运行 135s）────
+
+═══ 方案 B：HTTPClient + TLS（443 端口）═══

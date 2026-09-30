@@ -9,7 +9,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`教程/`](./教程/) | Original 1–6 month article-style learning plans |
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
-| [`day-01/`](./day-01/) … [`day-24/`](./day-24/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-25/`](./day-25/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -145,7 +145,8 @@ robotics-engineer-learning-tutorial/
 ├── day-21/                      ← Day 21: Robot car chassis (differential steering + motion functions + ultrasonic obstacle-avoidance state machine)
 ├── day-22/                      ← Day 22: Python refresher (serial JSON telemetry → CSV / config validation / batch rename)
 ├── day-23/                      ← Day 23: Git version control (two-dot inspection + diff3 conflict markers + reflog recovery / merge vs rebase)
-└── day-24/                      ← Day 24: README writing and project presentation (ffmpeg GIF clipping + hand-written SVG wiring diagram + README section order)
+├── day-24/                      ← Day 24: README writing and project presentation (ffmpeg GIF clipping + hand-written SVG wiring diagram + README section order)
+└── day-25/                      ← Day 25: first Wi-Fi on the ESP32-S3 (2.4 GHz join + connect timeout / auto-reconnect + hand-rolled HTTP + TLS + web server)
 ```
 
 ---
@@ -3333,9 +3334,109 @@ Duty is 115, not 255: the TT motors are rated 3 V and the pack is 6 V, so duty p
 
 The most valuable debugging move was **finding a control pair that differs by one variable**: all eight single-wheel commands (`lf lb lz lc rf rb rz rc`) pass while all two-wheel commands (`1`-`8`) fail, and the only differences are wheel count and duty — so GPIO, wiring and code are ruled out and the supply is the suspect. Assuming bad Dupont contacts instead would have kept me poking at six wires.
 
+---
+
+## Day 25 — First Wi-Fi on the ESP32-S3
+
+> Date: 2026-09-30
+> Status: ✅ all three experiments run on the real board
+>
+> Hardware: nothing new (reuses the Day 21 car: HC-SR04 on GPIO4/5, not one component added)
+> Core: from "can go online" to "**others can ask it**" — join Wi-Fi, send HTTP requests, run a web server of its own
+> Code: [`实验1-WiFi连接.ino`](./day-25/实验1-WiFi连接/实验1-WiFi连接.ino) ｜ [`实验2-HTTP客户端.ino`](./day-25/实验2-HTTP客户端/实验2-HTTP客户端.ino) ｜ [`实验3-WebServer.ino`](./day-25/实验3-WebServer/实验3-WebServer.ino)
+> Logs: [`实验1-WiFi连接.txt`](./day-25/实验1-WiFi连接.txt) ｜ [`实验2-Http客户端.txt`](./day-25/实验2-Http客户端.txt) ｜ [`实验3-串口打印.txt`](./day-25/实验3-串口打印.txt)
+
+Full notes: [`day-25/README.md`](./day-25/README.md)
+
+### Goal
+
+The Day 25 guide lists four things: join 2.4 GHz with `WiFi.h`, get the IP and print it, write an HTTP client against httpbin, run a web server and read sensor data in a browser. Against reality: since Day 24 the car runs free off USB, so today fills in the outbound channel it was missing.
+
+| Guide requirement | What I did |
+|---|---|
+| 1. Join 2.4 GHz with `WiFi.h` | ✅ Experiment 1. Added a connect timeout and an event callback |
+| 2. Get the IP and print it | ✅ Experiment 1. Printed the extras that will matter later (gateway / DNS / MAC / channel / RSSI) |
+| 3. HTTP client request to httpbin.org/get | ✅ Experiment 2. **Written twice on purpose**: raw `WiFiClient` bytes by hand, then `HTTPClient` + TLS |
+| 4. Web server, read sensor data from the board IP | ✅ Experiment 3. HC-SR04 alone is enough; the page polls `/data` every second |
+
+### Three things about joining Wi-Fi
+
+**① The ESP32-S3 is 2.4 GHz only.** A 5 GHz SSID is not "weak" — it is invisible; the hardware does not support it. A dual-band router with one shared name still joins, but always to the 2.4 GHz radio.
+
+**② Waiting for a connection needs a timeout.** The guide's `while (WiFi.status() != WL_CONNECTED)` is an infinite loop: a wrong password, a router that kicks you, or weak signal leaves the board stuck there forever, one dot printing over and over with no way to tell "still trying" from "cannot connect". A 15 s cap returns `false` and gives an answer.
+
+**③ A drop has to recover on its own.** Router reboots, the car driving to the edge of coverage — dropping out is normal, and with the car off USB nobody presses reset for it. `WiFi.onEvent()` fires earlier than polling `status()` in `loop()`, and it should print the **reason code**: `201` = SSID not found, `202` = authentication failed. Printing only "disconnected" prints nothing.
+
+What to print after connecting is more than the IP — the channel too: 2.4 GHz has 11 channels but only **1 / 6 / 11 are non-overlapping**. Sitting anywhere else means fighting the neighbours, which shows up as adequate RSSI with constant packet loss.
+
+The onboard RGB colour language is fixed from Day 25 on: **blue blink = connecting, green = connected, red = failed / dropped**. With no serial port later, the LED is the only status output.
+
+### The same HTTP request, written twice
+
+Approach A is a raw `WiFiClient` on port 80; approach B moves up to `HTTPClient` + `WiFiClientSecure` on 443. Writing both is the point — it shows what the library does for you:
+
+- An HTTP request is **a few lines of text plus one blank line**, and every line ends with `\r\n`
+- The `Host` header is **mandatory** in HTTP/1.1 — one server hosts hundreds of sites and it is what tells them apart. This was not memorised, it was measured: the identical byte sequence with and without that one line returns `200 OK` (457 B) vs `400 Bad Request` (272 B)
+- Receiving must not be `while (client.connected())`, which waits forever; time out on "time since the last byte"
+- A TLS handshake is not a few strings, so 443 needs the library; and `http.end()` **must** be called or the socket is never released and a few requests later there are none left
+
+### Web server: page and data kept apart
+
+Experiment 3 is the most valuable of the day. The first two are "can go online"; this one is "**others can ask it**". With the car off USB, **the browser is its only display** — join the same Wi-Fi from a phone and you can see what it measures, with nothing installed.
+
+Three points:
+
+1. **No `delay()` in `loop()`.** The web server advances through `server.handleClient()`; one `delay(500)` is half a second of no response and the page spins. Throttle ranging with `millis()` instead.
+2. **Never build the whole HTML with `String`.** The ESP32 heap is a few hundred KB; repeated concatenation punches holes in it and after a few hours `malloc` starts failing. Keep the static page as a `PROGMEM` `const char[]` — it lives in flash, not in the heap.
+3. **`/` serves HTML, `/data` serves JSON.** The browser polls `/data` once a second to update the numbers instead of reloading the page. The JSON goes through `snprintf` into a stack `char buf[256]`: known length, reclaimed on return.
+
+There is no analog quantity on the car, so `/data` has no voltage field. A potentiometer was briefly wired in as a "second sensor" — but a number you turn by hand carries no information and cannot be turned while the car drives, so it was removed.
+
+mDNS comes along for free: after `MDNS.begin("esp32s3")` the board answers at `http://esp32s3.local`. LAN IPs change when the DHCP lease expires; names do not.
+
+On the real board, opening `esp32s3.local` in a browser shows this page:
+
+![Experiment 3 web server telemetry page](./day-25/实验3-WebServer.png)
+
+28.0 cm, −32 dBm, 144 s uptime, 699 samples — matching what serial printed at the same instant, which shows browser and serial read the same `lastCm`. Capture: [`实验3-WebServer.png`](./day-25/实验3-WebServer.png)
+
+> 📌 That JSON has two consumers: the browser and Day 26's Python. Parsing and CSV writing carry over unchanged; only `serial.Serial()` becomes an HTTP fetch of `/data` — **which is why the data travels as JSON and not as a sentence for humans**.
+
+### Test results
+
+All three sketches compile (`--fqbn esp32:esp32:esp32s3`):
+
+```
+Experiment 1 - Wi-Fi:      Sketch uses 881725 bytes (67%)  / Global variables 44196 bytes (13%)
+Experiment 2 - HTTP:       Sketch uses 1018013 bytes (77%) / Global variables 46092 bytes (14%)
+Experiment 3 - Web server: Sketch uses 958565 bytes (73%)  / Global variables 48324 bytes (14%)
+```
+
+**The first number is the biggest finding of the day**: the Day 21 avoidance sketch is 324 KB (24%), one Wi-Fi call jumps to 881 KB (67%), and TLS pushes it to 1.02 MB (77%). The Wi-Fi stack eats more than half the flash. This is not "too much code written" — it is **the sticker price of being connected**, and it has to be budgeted when picking features (OTA needs two app partitions, so a 1 MB sketch means OTA is effectively out).
+
+On the real board:
+
+- Joined the open network, IP `192.168.0.5`, channel 1, RSSI −17 dBm (excellent); over a 40 s heartbeat RSSI fluctuates only between −17 and −20 dBm, the link is stable
+- Both the raw port 80 write and the port 443 TLS request returned `200`; the `origin` httpbin reports back is a public address, not a LAN one — **that is NAT at work**
+- Over 9 polls the free heap reads 217092 → 216992 → 216960 → … → 217040 bytes, wobbling within ±100 bytes with no steady decline — which shows that "JSON into a stack `char buf[256]`, never `String`" really works
+- The web server survived 1132 samples with no reboot and no drop; both the mDNS name and the IP answer
+
+The sample distribution is worth a look too: nearly all land in 21–31 cm with periodic "out of range" — that is not a broken sensor but an ultrasound-absorbing surface ahead (wall, curtain, soft fabric) whose echo is too weak to return before the timeout. Same physics as the "scatterers drop readings" note from Day 12.
+
+### Pitfalls
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `ESP.getFlashSize()` / `WiFi.firmwareVersion()` do not compile | Neither API exists in the current core | `ESP.getFlashChipSize()` and `esp_get_idf_version()` |
+| A 5 GHz SSID is not found | The ESP32-S3 does not support 5 GHz | Join 2.4G; a dual-band network always joins the 2.4 GHz radio |
+| Experiment 3 started with an extra potentiometer | Added to give the page a "second sensor", but a hand-turned number carries no information | Removed. The car has only HC-SR04, which alone satisfies the guide's "see sensor data" |
+| ADC2 stops reading once Wi-Fi is on | On the ESP32-S3, ADC2 (GPIO11-20) shares hardware with Wi-Fi | The Day 27-28 battery-voltage monitor must go to ADC1 (GPIO1-10) |
+
 ### Next Steps
 
-- **Day 25**: first Wi-Fi on the ESP32-S3 (join 2.4 GHz, print the IP, HTTP request, run a web server)
+- **Day 26**: Python + ESP32 data visualisation (pyserial reading serial JSON + matplotlib live plotting)
+
+> 📌 The Day 22 note "the serial path has a window" comes true today: with the car off USB there is no serial port, so Day 26 live plotting will pull `/data` instead.
 
 ---
 ## Learning Journal Policy
