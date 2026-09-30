@@ -9,7 +9,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`教程/`](./教程/) | Original 1–6 month article-style learning plans |
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
-| [`day-01/`](./day-01/) … [`day-26/`](./day-26/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-27/`](./day-27/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -147,7 +147,8 @@ robotics-engineer-learning-tutorial/
 ├── day-23/                      ← Day 23: Git version control (two-dot inspection + diff3 conflict markers + reflog recovery / merge vs rebase)
 ├── day-24/                      ← Day 24: README writing and project presentation (ffmpeg GIF clipping + hand-written SVG wiring diagram + README section order)
 ├── day-25/                      ← Day 25: first Wi-Fi on the ESP32-S3 (2.4 GHz join + connect timeout / auto-reconnect + hand-rolled HTTP + TLS + web server)
-└── day-26/                      ← Day 26: Python live telemetry plotting (HTTP poll of /data + 60 s rolling window + NaN line breaks + CSV)
+├── day-26/                      ← Day 26: Python live telemetry plotting (HTTP poll of /data + 60 s rolling window + NaN line breaks + CSV)
+└── day-27/                      ← Day 27: Wi-Fi remote-control car (/cmd write route + phone control panel + connection watchdog)
 ```
 
 ---
@@ -3512,13 +3513,140 @@ Both closing the window and Ctrl+C go through `finally`: close the CSV, then sav
 | `--host esp32s3.local` drops nearly every poll | **Resolving the mDNS name alone takes ~5 s**; a direct IP takes 0.1 s | Collect data with `--host 192.168.0.5`; keep the mDNS name for humans opening a browser |
 | `requests.get(..., timeout=2.0)` bought in as a safety net never fires | `getaddrinfo()` is a blocking call and **socket timeouts cannot interrupt it** — measured: a `timeout=2.0` request still ran the full 5.12 s | Slow DNS cannot be fixed with a timeout, only bypassed: use the IP |
 | Running over SSH / a bare terminal, the script exits | No usable display backend, so matplotlib falls back to `agg` | Check the backend at startup and fail loudly on `agg / pdf / svg / …` rather than "running with no window" |
-| Python 3.14 in `.venv` cannot install tkinter | The system ships no tcl/tk development headers | Only *check* the backend, never *force* one: macOS's default `macosx` works, and writing `TkAgg` would break an environment that is fine |
+| Python 3.14 in `.venv` has no `_tkinter` | Python was built without tcl/tk development headers, and `pip install` cannot add it afterwards | Only *check* the backend, never *force* one: macOS's default `macosx` works, and writing `TkAgg` would break an environment that is fine |
 
-### Next Steps
+---
 
-- **Day 27-28**: the Wi-Fi remote-control car capstone. Today's `/data` polling and CSV writing are reused directly
+## Day 27 — The Wi-Fi Remote-Control Car (the first "write" channel)
 
-> 📌 Day 26's script only reads. Remote control needs writing: add a `/cmd` route to the board and let Python send commands down. Both directions share the same HTTP channel — no new transport.
+> Date: 2026-09-30
+> Status: compiles clean + control-panel JS verified on the desktop + **runs on a phone** (hold any direction and it keeps going, release and it stops immediately, turns work); the board's own watchdog stop has never fired — left to Day 28
+>
+> Hardware: nothing new (Day 24's car: TB6612 + two TT motors + HC-SR04 + 6 V battery box, not one component added)
+> Core: add a `/cmd` route to Day 25's web server and drive the car from a phone browser
+> Code: [`experiment 1 - wifi remote`](./day-27/%E5%AE%9E%E9%AA%8C1-WiFi%E9%81%A5%E6%8E%A7/%E5%AE%9E%E9%AA%8C1-WiFi%E9%81%A5%E6%8E%A7.ino)
+> Screenshot: [`phone-remote-panel.png`](./day-27/%E5%AE%9E%E9%AA%8C1-%E6%89%8B%E6%9C%BA%E9%81%A5%E6%8E%A7.png)
+
+Full notes: [`day-27/README.md`](./day-27/README.md)
+
+### Goals
+
+The guide's Day 27-28 capstone has four task groups, checked one by one:
+
+| Guide asks for | What actually happened |
+|---|---|
+| Web server + HTML control panel + AJAX motor control | ✅ `/` serves the panel, `/cmd` takes commands. The buttons do **not** use the guide's `onmousedown/onmouseup` — they use Pointer Events plus pointer capture |
+| Phone on the same Wi-Fi, browser to the ESP32 IP | ✅ the panel was written for a phone: locked viewport scaling, 64 px buttons, `touch-action:none` |
+| Live distance readout | ✅ `/data` already existed; the panel polls it every 500 ms |
+| IMU attitude data | ⏭️ not connected, the car has no IMU (see below) |
+| Speed slider | ✅ 60–200, one command on `change` |
+| Connection timeout auto-stop | ✅ `CMD_TIMEOUT_MS = 1000`, a Wi-Fi drop counts as a timeout |
+| Battery voltage monitoring | ⏭️ not connected, it needs a divider pair (see below) |
+
+### Going from "read" to "write" brings new problems
+
+Day 25 and Day 26 were all reads. Read and write channels differ by an order of magnitude in safety: if `/data` dies you lose one number, if `/cmd` dies **the car keeps driving**. Three problems appear that reads simply do not have:
+
+**① The power-on default has to be stopped.** On boot the Wi-Fi is not connected yet and no phone can reach it, so no command can arrive. If the default were "forward", the car would lurch the instant power is applied. Hence `brakeAll()` first in `setup()`, before the seconds spent connecting.
+
+**② The command channel will break, and the car must not keep running.** Browsers crash, get suspended by the OS, phones walk out of range — in none of those cases does any `stop` get sent. The board needs its own watchdog.
+
+**③ One command changes one parameter; the current state lives on the board.** The guide packs direction into `/control?dir=fwd`; here it splits into `dir` and `speed`, with `cmdDir` and `cmdDuty` stored separately. The reason is the heartbeat: re-sending the speed on every 250 ms beat when it has not changed in almost all of them is pure waste. Split apart, the beat sends only `dir` and the slider only `speed`.
+
+Going from read to write adds one route. Everything else added today answers "how do we make it stop".
+
+### Why "stop on release" cannot be trusted
+
+The guide's binding has three failure modes, all of them phone-only:
+
+```html
+<button onmousedown="send('fwd')" onmouseup="send('stop')">▲</button>
+```
+
+- **`onmouseup` was not built for touch**; the browser emulates it for touch devices. Use Pointer Events — one `pointerdown` / `pointerup` pair covering mouse, touch, and pen.
+- **A finger that slides off the button before lifting never delivers `pointerup` to the button** — the event goes to whatever element is under the finger, so `stop` never gets sent. Fix: `setPointerCapture(e.pointerId)`, which routes all subsequent pointer events to the button itself.
+- **A page suspended by the OS sends no release event at all** (lock screen, backgrounding, incoming call). `visibilitychange` and `window.blur` each add an immediate stop, far steadier than waiting for the watchdog.
+
+Plus a CSS trap: the button needs `touch-action:none`. Without it, pressing and holding triggers page scrolling and double-tap zoom, the gesture gets eaten by the browser, and `pointerup` is lost just the same.
+
+All three share one root cause: **"the user let go" is not something the browser guarantees to tell you.** So stopping needs two independent paths — the browser sends `stop`, and the board stops itself on timeout.
+
+### Heartbeat and watchdog are the same thing
+
+A watchdog can only work if **commands keep flowing during normal driving**. Send `dir=fwd` once on press and the board declares a timeout after one second — the watchdog turns from a backstop into something that interrupts normal driving, with a symptom that is extremely hard to trace.
+
+So each hold re-sends the same `dir` every 250 ms, and only release sends `stop`. Now "timeout" means something clean: **no heartbeat for over a second can only mean the controller is gone.** The heartbeat is not overhead — it is the precondition that makes the watchdog usable.
+
+Both numbers are squeezed from two sides. The beat must sit well under the board's `CMD_TIMEOUT_MS` to leave room for at least three lost packets, yet not be so dense it wastes bandwidth. The timeout itself: 500 ms is too tight (one request plus network jitter could false-trigger), 3 s is too loose (enough to coast two metres).
+
+On the board side, the action fires only when the car is **actually moving**, otherwise a parked car would print a log line every second. One easily-missed detail: **the watchdog only counts accepted commands** — `/cmd?dir=bogus` returns 400 and does not refresh `lastCmdMs`, because a client that only sends garbage should not count as alive.
+
+The red flash on a watchdog stop must not use `delay()` either: 720 ms without `handleClient()` breaks Day 25's own rule and starves the watchdog by that same 720 ms. So it records a `flashUntil` deadline and blinks non-blockingly at the end of `loop()`.
+
+### Why the IMU and battery monitor were left out
+
+Two of the guide's four task groups want hardware added, but **the MPU-6050 and the resistors are both already on hand** (the inventory lists the MPU-6050 specifically for Day 27-28). Skipping them is not about availability — it is that they do not change what today is about to verify:
+
+- What needs verifying today is the **write channel and the stop path**. Attitude is a display item with no information about that; and for a ground vehicle attitude has no control value either (it is not a flight controller).
+- A sagging battery shows up as "the car got slower", visible by eye; four AA primaries carry no over-discharge hazard.
+- Adding one I2C device and three Arduino libraries pushes flash past 73%, and not one byte of today's real work depends on them.
+
+Day 25 already deleted a potentiometer for the same reason (a number carrying no information), and today follows that precedent. If it does get added later: the ADC must use **ADC1 (GPIO1-10)**; ADC2 (GPIO11-20) shares hardware with Wi-Fi — Day 25 recorded it, and the symptom of wiring it wrong is "the battery reading never returns a number".
+
+### Test results
+
+**Firmware build:** `arduino-cli compile --fqbn esp32:esp32:esp32s3` passes clean at 971856 bytes (74%) with no warnings — 12991 bytes more than Day 25 experiment 3, almost all of it the control panel's HTML.
+
+**Control-panel JS (verified on the desktop):** the HTML between `R"rawliteral(...)rawliteral` was pulled out of the firmware, a mock `/cmd` and `/data` were stood up, and the whole thing driven with synthetic PointerEvents:
+
+| Scenario | Measured |
+|---|---|
+| Hold fwd for 700 ms | one `dir=fwd` plus a beat at 250 ms ✅ |
+| Release | `dir=stop` immediately, no further requests after 800 ms ✅ |
+| Drag the speed slider then release | exactly one `speed=160`, no stream of requests while dragging ✅ |
+| Page hidden | `dir=stop` immediately, no further requests after 600 ms ✅ |
+| Distance / state / IP | 42.5 cm ｜ stop ｜ 192.168.0.5 ✅ |
+
+One thing that could not really be verified: **a finger sliding off the button before lifting.** The mock is a desktop page, where `setPointerCapture()` throws `NotFoundError` on synthetic events, so it was stubbed out during testing — the bindings were checked, but not that capture really routes an off-button release back to the button. That one can only be pressed out on a phone.
+
+**On the car (phone on the same Wi-Fi):**
+
+![Phone remote-control panel](./day-27/%E5%AE%9E%E9%AA%8C1-%E6%89%8B%E6%9C%BA%E9%81%A5%E6%8E%A7.png)
+
+Opening `http://esp32s3.local` in the phone browser brings up the panel as designed: distance ahead 50.5 cm (the live value from `/data` reaches the page with no serial attached), state `back` (the `dir` parameter really does rewrite the motor state), speed 115, 0 watchdog stops, signal −32 dBm, board up 3869 s (≈ 64 minutes).
+
+But "it drives" and "it stops" are two different things, and the screenshot only proves the first. The stopping half was made up on the phone itself: **hold forward / back / a turn and it keeps going; release and it stops at once.**
+
+That checks off the two things most at risk in the design:
+
+- **The car never stopping itself while held proves the heartbeat is really flowing.** The watchdog's `CMD_TIMEOUT_MS = 1000` runs the whole time; without a heartbeat, holding for one second would stop the car — "the watchdog turning from a safety net into a way of interrupting normal driving" did not happen, so the 250 ms beat holds up. And `0 watchdog stops` on the panel confirms it never false-fired either. Both halves of that contradiction verified good today.
+- **Release-stop was verified on real hardware, not in a mock.** Synthetic events on the desktop can only check bindings, and `setPointerCapture()` throws `NotFoundError` there; on the phone, continuous motion while held and an immediate stop on lift proves the event really does arrive at that moment.
+
+Only two things remain unverified: the watchdog stop (the board stopping itself — never fired, and 0 is not the same as "fired correctly"), and a finger sliding off the button before lifting (the mechanism `setPointerCapture()` exists for has not been tested). Also, the `up` field is `millis()/1000`, counted from boot and never reset by a reconnect, so 3869 s only proves the board ran 64 minutes without dying or rebooting; but the car really was moving with Wi-Fi still connected, so Day 24's "motors drag down 3V3" worry currently looks unfounded.
+
+### The biggest unknown for on-car testing
+
+Day 24 ran the motors with no Wi-Fi; Day 25 ran Wi-Fi with no motors. **Today is the first time both are live together.** The inrush current of a TT motor starting, plus commutator noise, couples through Day 24's five-point common ground — the whole build is zero resistors, zero capacitors, wired directly — and could well drag down 3V3. The symptom is unmistakable: fine while stationary, drops off the moment it moves, reconnects after a reboot.
+
+The car was moving with Wi-Fi still connected, and holding a direction held the link the whole time, so this currently looks like a false alarm. If it does appear, the direction is a decoupling capacitor on the motor supply, not a code change.
+
+What is left is the back half of the stop path: the watchdog firing once, and pointer capture catching an off-button release once. To fire the watchdog deliberately: lock the screen, leave the browser, or enable airplane mode while driving — within three seconds the car should stop itself, flash red for 720 ms, and the panel's watchdog-stop count should go from 0 to 1.
+
+### Next up
+
+- **Day 28**: press out the rest of the stop path — the watchdog stop (the board stopping itself when the controller disappears) and a finger sliding off the button before lifting (pointer capture). Everything already working today becomes a regression check
+
+> 📌 On Day 28 the car is free, so serial is unavailable all day. The acceptance checks have to work without it: the LED colour, the `tmo` field in `/data`, and a phone screen recording.
+
+### Pitfalls
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| The car stops itself after less than a second of holding | Only one `dir` was sent on press, so the board timed out at 1 s | Re-send a heartbeat every 250 ms while held; the beat is what makes the watchdog usable |
+| Sliding a finger off the button and then lifting did not stop the car | `pointerup` goes to the element under the finger, so the button never sees it | `setPointerCapture(e.pointerId)` routes subsequent pointer events to the button itself |
+| Holding a button on the phone scrolled the page | The browser's default gesture was not disabled | `touch-action:none` on the button plus `preventDefault()` in `pointerdown` |
+| The watchdog-stop red flash used `delay(120)` three times | 720 ms without `handleClient()` breaks Day 25's rule and starves the watchdog by exactly that long | Record a `flashUntil` deadline and blink non-blockingly at the end of `loop()` |
+| A client sending only `/cmd?dir=bogus` could keep the car running | `lastCmdMs` refreshed on any `/cmd` arrival | The watchdog only counts accepted commands; the 400 branch returns early |
 
 ---
 ## Learning Journal Policy
