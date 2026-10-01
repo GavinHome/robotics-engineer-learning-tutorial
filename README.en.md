@@ -10,7 +10,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
 | [`智能小车/`](./智能小车/) | Smart-car PCB and carrier-board design notes + photos of the built board ([`智能小车-正面.png`](./智能小车/智能小车-正面.png) ｜ [`智能小车-背面.png`](./智能小车/智能小车-背面.png)) |
-| [`day-01/`](./day-01/) … [`day-29/`](./day-29/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-30/`](./day-30/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -161,6 +161,7 @@ robotics-engineer-learning-tutorial/
 ├── day-27/                      ← Day 27: Wi-Fi remote-control car (/cmd write route + phone control panel + connection watchdog)
 ├── day-28/                      ← Day 28: remote control + auto avoidance in one firmware (mode switch + heartbeat semantics extended + demo videos)
 ├── day-29/                      ← Day 29: portfolio tidy-up and GitHub profile (README audit + profile README + full compile check)
+├── day-30/                      ← Day 30: monthly review and month-2 prep (main thread + inventory + shopping list)
 └── 智能小车/                    ← smart-car PCB and carrier-board design notes + photos of the built board
 ```
 
@@ -3843,9 +3844,72 @@ Five pitfalls. **"Just tidy this up" is the easiest way to quietly break someone
 | The `Ω` encoding was wrong in the English README | Percent-encoding was hand-written, treating `Ω` (U+03A9) as `é` (U+00E9) | Generate it with `urllib.parse.quote()`; never hand-write it |
 | Four `.ino` files would not compile | The sketch name did not match the folder name; they sat loose in the roots of `day-09/` and `day-11/` | One same-named subfolder each (`rgb_cycle/rgb_cycle.ino`), plus the 4 code links across both outer READMEs |
 
+---
+
+## Day 30 — Monthly Review and Month-2 Prep
+
+> Hardware: nothing new (a tidy-up day)
+> Core: treat the 30 days as one story rather than 30 unrelated experiments, then let that decide what to buy first in month two
+> Full review: [`day-30/README.md`](./day-30/README.md)
+
+Month one was not 30 separate experiments, it was one line: **from "light an LED" to "a robot that dodges obstacles on its own and can be driven from a phone"**. Week 1 was only actuation, week 2 added sensing, week 3 turned actuation into motors and sensing into ultrasound plus an IMU, week 4 wired all three together over Wi-Fi — one development board the whole way, no wasted sensor.
+
+By the numbers: 29 day folders, 24 standalone logs, 28 `.ino` sketches (all compiling for ESP32-S3), 5 Python scripts, 88 images/videos, 18055 lines of Markdown. The hardware end-state is a 2WD differential car (TB6612 + two TT motors + HC-SR04 + a 6V battery box stepped down through an MP1584EN for independent power), drivable from a phone, switchable to auto-avoidance, and it stops on its own when the connection drops.
+
+What is worth keeping out of the review is not "how many APIs I know" but three transferable judgements:
+
+**Duty cycle is not voltage.** `DRIVE_DUTY = 180` on 3V averages just 2.12V and the motor hums without turning. The gap between average and instantaneous value was learned on a real car, not on paper.
+
+**Moving to 6V was not for speed.** Two AA cells cannot supply the peak current of both motors starting at once, and would sag the rail; average voltage is brought back down to 2.7V by duty cycle, so the motor never sees an over-voltage.
+
+**Keep sense–decide–act separate.** What a sensor reads, how the state machine decides, how the motor moves — three concerns in three functions, so changing one does not rewrite the others. Day 24's avoidance ran eight rounds without deadlocking precisely because of that split.
+
+What is still unmastered is exactly the whole of month two: closed-loop control (encoders + PID), attitude fusion (accelerometer plus gyro into a stable angle), wiring an I2C sensor straight from its datasheet, tidier solder joints, and code organisation beyond a single file.
+
+Asked for the biggest sense of achievement, the answer is not one breakthrough but **turning a pile of separate basic parts into something that actually runs**: recognising resistors, capacitors, potentiometers and an attitude sensor one by one; getting the ESP32, driver circuit and step-down module working one by one; then assembling the car and watching it move — with no ready-made design copied anywhere. What that bought was not mastery of any single part but **know the inputs and outputs and you know how to use it**: the HC-SR04 is just a module, but understand the levels and timing on its Trig/Echo pins and you can drive it from GPIO4/5 to read distance. Soldering too — bad at first, then a switch to an 80W temperature-controlled iron plus practice with the hand position, and it went smoothly: **that gap was crossed by getting the right tool and practising, not by putting in hours**.
+
+Asked what would be done differently a second time, the answer is **nothing**. The basics cannot be skipped or rushed through; a second run would still be one day at a time. The only wish would be to go straight at a robot dog or a biped — but that only comes once these basics bear fruit: differential steering, duty cycle, attitude readings and I2C, none of it avoidable. Month one was not caution, it was **the only route**.
+
+### Month two: only the new material, nothing repeated
+
+Day-by-day guide: [`进度/第2月-30天逐日指南.md`](./进度/第2月-30天逐日指南.md). Checking month two's original plan line by line, **half of it was already done** in month one (GPIO / PWM / I2C / serial / Web Server / Python), so all 30 days go into four genuinely new topics:
+
+| Week | Days | Content |
+|---|---|---|
+| 1 | Day 31–37 | interrupts → encoders → rpm conversion → P speed loop → exactly one revolution |
+| 2 | Day 38–44 | reading an I2C sensor straight from its datasheet → pitch drift → complementary filter → < 1° drift over 60 s at rest |
+| 3 | Day 45–51 | ⭐ line-following robot (5× TCRT5000 → position value → P → PD → tuning comparison video) |
+| 4 | Day 52–58 | ⭐ self-balancing robot (angle loop → PD → speed loop → remote tuning) |
+| Close | Day 59–60 | monthly review + two running robots on GitHub + month-3 prep |
+
+The internal order cannot be reversed: encoders and closed loop first (a measurable speed is what makes control possible), then attitude fusion (the prerequisite for balancing), then line following (built on differential drive and PWM), and self-balancing last, which consumes everything from the first two.
+
+### Inventory check: nothing wasted, only two things to buy
+
+The core parts month two's plan lists are already on the shelf from month one: **SG90, HC-SR04, MPU-6050, TB6612FNG, 2WD chassis and 6V battery box are all in hand**, none needs re-buying. The genuine gaps:
+
+| Item | For | Note |
+|---|---|---|
+| Encoder gear motors ×2 | self-balancing robot | The chassis TT motors have **no encoder leads** (the discs need photo-pairs the kit does not include), and closed loop requires them |
+| TCRT5000 infrared reflectance ×5 (AO+DO dual-output) | line-following robot | Get the AO version: the analogue value shows the gradient instead of forcing a binary decision too early |
+
+Consumables — 0.8mm solder ×2 rolls plus 0.3mm ×1, 120 dupont lines, desolder braid, flux, 2 spare boards, 120 resistors, 51 LEDs — **all sufficient, no restocking needed**.
+
+### ROS2: not yet
+
+Month two is a **pure hardware month** with the loop closed on a real car, and no simulation in it. ROS2 sits in month four of the original plan; installing it early only disturbs the current course — install it just before month four begins.
+
+### Pitfalls
+
+| Problem | Cause | Fix |
+|---|---|---|
+| Nearly re-ordered an SG90 | The plan's shopping list is written for someone starting from zero and does not account for what the previous month already bought | Check every line against what is on hand before ordering — only the encoder motors and the infrared reflectors are genuinely missing |
+| The review started as 30 diary entries | One flat paragraph per day hid the through-line | Merge them along sense–decide–act and keep only the events that changed that line |
+| The month-1 guide was still pointing at month 1's "next up" once month 2 started | Both day chapters claimed the next day, so two "next up" entries were live at once | Keep exactly one, at the tail of the newest chapter |
+
 ### Next up
 
-- **Day 30**: the guide's month review and month-2 plan — look back on month one, write a 500-word summary and plan month two
+- **Day 31**: into month two, starting with **interrupts** — a reaction-timer game on the button and LED already on hand, because encoder counting has to rely on interrupts; no idle time before the new parts arrive, then straight into encoder closed loop
 
 ---
 
@@ -3866,6 +3930,7 @@ Each day's work goes in its own folder, covering:
 ## Hardware
 
 See [`教程/第1月-电子学与工作台.md`](./教程/第1月-电子学与工作台.md) and [`进度/第1月-30天逐日指南.md`](./进度/第1月-30天逐日指南.md) for full BOM and budget tiers.
+- [`进度/第2月-30天逐日指南.md`](./进度/第2月-30天逐日指南.md) — encoder closed loop / attitude fusion / line following / self-balancing
 - [`元器件库存清单.md`](./元器件库存清单.md) — parts on hand + shopping list
 
 > 📷 **Can't identify a component by name?** Open [`docs/元器件.jpg`](./docs/元器件.jpg) (breadboard-kit contents poster) and match it by appearance.
