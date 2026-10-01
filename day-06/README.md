@@ -91,8 +91,8 @@ Vtotal = Vresistor + Vled = 3.2V + 1.8V = 5.0V ✓
 
 ## 照片
 
-- `点亮LED-充电头USB剪线供电.png` — 面包板整体接线
-- `点亮LED-USB供电.png` — MB102 故障参考（备用）
+- [`点亮LED-充电头USB剪线供电.png`](./点亮LED-充电头USB剪线供电.png) — 面包板整体接线
+- [`点亮LED-USB供电.png`](./点亮LED-USB供电.png) — MB102 故障参考（备用）
 
 ---
 

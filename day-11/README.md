@@ -38,7 +38,9 @@ Day 9/10 都是 GPIO **输出**（写电平、PWM）。Day 11 反过来——读
 
 ## 三、代码
 
-完整代码：[`day11.ino`](./day11.ino)
+完整代码：[`button_led/button_led.ino`](./button_led/button_led.ino)
+
+草图文件夹名与 `.ino` 文件名相同——Arduino 要求**草图名必须等于所在文件夹名**，否则 IDE 打不开、`arduino-cli` 也编译不了。
 
 ```cpp
 #include <RgbCycle.h>
@@ -141,10 +143,12 @@ if (buttonState == LOW) {
 
 ## 六、运行结果
 
-- **按键松开**：GPIO1 = 3.3V，LED 灭，串口无输出
-- **按键按下**：GPIO1 = 0V，LED 亮，串口打印 `Button PRESSED`
+- **按键松开**：GPIO1 = 3.3V，LED 灭，串口无输出 —— [`松开灭灯.png`](./松开灭灯.png)
+- **按键按下**：GPIO1 = 0V，LED 亮，串口打印 `Button PRESSED` —— [`按下亮灯.png`](./按下亮灯.png)
 - **按住不放**：每 200ms 打印一次（`delay(200)` 消抖）
 - **松开后**：LED 立即灭，串口停止打印
+
+代码写入 IDE 的样子见 [`IDE.png`](./IDE.png)。
 
 ---
 

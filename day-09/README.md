@@ -37,9 +37,11 @@ Day 9 写了三份代码，对应三组由浅入深的实验：
 
 | 实验 | 代码 | 内容 | 控制脚 |
 | --- | --- | --- | --- |
-| 实验一 | [`rgb_cycle.ino`](rgb_cycle.ino) | 板载 WS2812B 彩灯循环 | GPIO48 |
-| 实验二 | [`external_led_blink.ino`](external_led_blink.ino) | 外接普通 LED 闪烁 | GPIO2 |
-| 实验三 | [`combined_blink.ino`](combined_blink.ino) | 彩灯 + 外接 LED 合并到同一循环 | GPIO48 + GPIO2 |
+| 实验一 | [`rgb_cycle/rgb_cycle.ino`](rgb_cycle/rgb_cycle.ino) | 板载 WS2812B 彩灯循环 | GPIO48 |
+| 实验二 | [`external_led_blink/external_led_blink.ino`](external_led_blink/external_led_blink.ino) | 外接普通 LED 闪烁 | GPIO2 |
+| 实验三 | [`combined_blink/combined_blink.ino`](combined_blink/combined_blink.ino) | 彩灯 + 外接 LED 合并到同一循环 | GPIO48 + GPIO2 |
+
+> 三个实验各自一个文件夹，文件夹名和 `.ino` 文件名相同（`rgb_cycle/rgb_cycle.ino`）。Arduino 的规矩就是**草图名必须等于所在文件夹名**，这样每个草图都能被 IDE 直接打开、被 `arduino-cli` 直接编译，不需要复制到临时目录。
 
 ### 实验一：板载 WS2812B 彩灯循环
 
@@ -47,7 +49,7 @@ Day 9 写了三份代码，对应三组由浅入深的实验：
 
 ![电路-板载彩灯](电路-板载彩灯.png)
 
-完整代码：[`rgb_cycle.ino`](rgb_cycle.ino)
+完整代码：[`rgb_cycle.ino`](rgb_cycle/rgb_cycle.ino)
 
 ```cpp
 #include <Adafruit_NeoPixel.h>
@@ -100,7 +102,7 @@ void loop() {
 
 ![电路-外接LED](电路-外接LED.png)
 
-完整代码：[`external_led_blink.ino`](external_led_blink.ino)
+完整代码：[`external_led_blink.ino`](external_led_blink/external_led_blink.ino)
 
 ```cpp
 const int EXT_LED_PIN = 2;   // 外接 LED 控制脚
@@ -131,7 +133,7 @@ void loop() {
 
 ![电路-综合版](电路-综合版.png)
 
-完整代码：[`combined_blink.ino`](combined_blink.ino)
+完整代码：[`combined_blink.ino`](combined_blink/combined_blink.ino)
 
 四个相位各 500 ms，单循环 **2 s**：
 

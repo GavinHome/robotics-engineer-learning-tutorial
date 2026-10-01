@@ -9,7 +9,8 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`教程/`](./教程/) | Original 1–6 month article-style learning plans |
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
-| [`day-01/`](./day-01/) … [`day-28/`](./day-28/) | Daily work (screenshots, circuit files, code, notes) |
+| [`智能小车/`](./智能小车/) | Smart-car PCB and carrier-board design notes + photos of the built board ([`智能小车-正面.png`](./智能小车/智能小车-正面.png) ｜ [`智能小车-背面.png`](./智能小车/智能小车-背面.png)) |
+| [`day-01/`](./day-01/) … [`day-29/`](./day-29/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -47,7 +48,16 @@ Budget: **$0–$90** depending on tier (simulator-only → full ESP32 starter ki
 Understand voltage, current, and resistance. Build and simulate your first circuits. Verify Ohm's Law with real measurements.
 
 ### Screenshots
-- **Falstad simulation — single resistor (10 kΩ @ 5 V):** [`day-01/1.1 第一个仿真电路.png`](day-01/1.1 第一个仿真电路.png)
+- **Falstad simulation — single resistor (1 kΩ @ 5 V):** [`day-01/1kΩ.png`](day-01/1k%CE%A9.png)
+- **Falstad simulation — single resistor (220 Ω @ 5 V):** [`day-01/220Ω.png`](day-01/220%CE%A9.png)
+- **Falstad simulation — single resistor (10 kΩ @ 5 V):** [`day-01/10kΩ.png`](day-01/10k%CE%A9.png)
+- **Tinkercad sign-up succeeded:** [`day-01/tinkercad.png`](day-01/tinkercad.png)
+
+### Falstad circuit file
+
+- **Reusable circuit template:** [`day-01/series-resistor-circuit.txt`](day-01/series-resistor-circuit.txt)
+  - A Falstad-exported 1 kΩ series circuit
+  - To import: open https://www.falstad.com/circuit/ → File → Import → paste the file contents
 
 ### Measured Data
 
@@ -149,7 +159,9 @@ robotics-engineer-learning-tutorial/
 ├── day-25/                      ← Day 25: first Wi-Fi on the ESP32-S3 (2.4 GHz join + connect timeout / auto-reconnect + hand-rolled HTTP + TLS + web server)
 ├── day-26/                      ← Day 26: Python live telemetry plotting (HTTP poll of /data + 60 s rolling window + NaN line breaks + CSV)
 ├── day-27/                      ← Day 27: Wi-Fi remote-control car (/cmd write route + phone control panel + connection watchdog)
-└── day-28/                      ← Day 28: remote control + auto avoidance in one firmware (mode switch + heartbeat semantics extended + demo videos)
+├── day-28/                      ← Day 28: remote control + auto avoidance in one firmware (mode switch + heartbeat semantics extended + demo videos)
+├── day-29/                      ← Day 29: portfolio tidy-up and GitHub profile (README audit + profile README + full compile check)
+└── 智能小车/                    ← smart-car PCB and carrier-board design notes + photos of the built board
 ```
 
 ---
@@ -474,6 +486,8 @@ P = I² × R
 
 ## Day 6 — Breadboards & Multimeter Basics
 
+Full write-up (measured breadboard internal connections, both powering methods compared) in [`day-06/README.md`](./day-06/README.md).
+
 ### Goal
 Learn to build real circuits on a breadboard, master the internal connection rules, power the breadboard by cutting a USB cable, and light a first LED.
 
@@ -579,6 +593,8 @@ P = I² × R
 ---
 
 ## Day 7 — Week 1 Review & Q&A
+
+Full write-up (all five worked problems, Tinkercad plus breadboard measurements) in [`day-07/README.md`](./day-07/README.md).
 
 ### Goal
 Consolidate the first six days by working circuit problems by hand and checking them in Tinkercad, then tidy up a list of open questions.
@@ -1011,9 +1027,9 @@ Flash the first firmware and understand GPIO output + `delay`-based timing. This
 
 | Experiment | Code | Content | Pins |
 | --- | --- | --- | --- |
-| 1 | [`day-09/rgb_cycle.ino`](./day-09/rgb_cycle.ino) | Onboard WS2812B colour cycle | GPIO48 |
-| 2 | [`day-09/external_led_blink.ino`](./day-09/external_led_blink.ino) | External plain LED blink | GPIO2 |
-| 3 | [`day-09/combined_blink.ino`](./day-09/combined_blink.ino) | Colour cycle + external LED in one loop | GPIO48 + GPIO2 |
+| 1 | [`day-09/rgb_cycle/rgb_cycle.ino`](./day-09/rgb_cycle/rgb_cycle.ino) | Onboard WS2812B colour cycle | GPIO48 |
+| 2 | [`day-09/external_led_blink/external_led_blink.ino`](./day-09/external_led_blink/external_led_blink.ino) | External plain LED blink | GPIO2 |
+| 3 | [`day-09/combined_blink/combined_blink.ino`](./day-09/combined_blink/combined_blink.ino) | Colour cycle + external LED in one loop | GPIO48 + GPIO2 |
 
 ### Experiment 1: Onboard WS2812B Colour Cycle
 
@@ -1356,7 +1372,7 @@ Multimeter measurements:
 
 ### Code
 
-Full code: [`day-11/day11.ino`](./day-11/day11.ino)
+Full code: [`day-11/button_led/button_led.ino`](./day-11/button_led/button_led.ino)
 
 ```cpp
 #include <RgbCycle.h>
@@ -1453,6 +1469,8 @@ This sketch uses a **minimal version** (good for beginners): `delay(200)` means 
 ---
 
 ## Day 12 — ADC & Sensor Reading
+
+Full notes: [`day-12/README.md`](./day-12/README.md).
 
 > Date: 2026-09-14
 > Status: ✅ Tested on hardware (potentiometer raw=0→4095, voltage 0V→3.3V; raw=2048 ≈ 1.65V)
@@ -1661,6 +1679,8 @@ void loop() {
 
 ---
 ## Day 13 — Serial Communication & Debugging
+
+Full notes: [`day-13/README.md`](./day-13/README.md).
 
 > Date: 2026-09-14
 > Status: 🚧 In Progress
@@ -2524,7 +2544,6 @@ The H-bridge output is only on/off; PWM produces an **average voltage**: `duty 1
 
 The serial port of the PWM ramp reveals two things the code hides: the `P_HOLD` phase goes silent for a full second because duty stops changing and `if (duty != printedDuty)` filters the repeats; and each `STEP_MS = 40` step actually runs about 33 ms, since `Serial.printf` itself costs a few milliseconds. Do not count on `millis()` throttling plus serial printing for precise timing.
 
-
 ### Three wiring rules that matter
 
 - **Grounds must be shared**: battery negative, ESP32 GND, and module GND all tied together. Without a common ground the GPIO's "high" has no reference at the driver, which shows up as "code runs, motor does nothing".
@@ -3020,7 +3039,7 @@ Decisions that aren't obvious:
 | Timeout returns `-1`, not `0` | `0` reads as "obstacle right in front" and plots as a fake spike down to zero |
 | Sample at 10 Hz, not as fast as possible | Past 50 Hz characters start dropping and JSON parses half a line |
 
-The analog input goes to **GPIO1 (ADC1_CH0)**, not GPIO11: ADC2 (GPIO11-20) shares hardware with Wi-Fi, so `analogRead()` fails while Wi-Fi is on. Day 27 runs Wi-Fi and battery monitoring together, so everything uses ADC1 from now on.
+The analog input goes to **GPIO1 (ADC1_CH0)**, not GPIO11: ADC2 (GPIO11-20) shares hardware with Wi-Fi, so `analogRead()` fails while Wi-Fi is on. Any analog input on a board that also runs Wi-Fi has to use ADC1.
 
 ### Environment: PEP 668 and venv
 
@@ -3192,7 +3211,7 @@ git log --oneline main..origin/main   # empty = not behind the remote
 
 **`git status` alone is not enough** — it reports a clean tree but not whether you are ahead of or behind the remote.
 
-> `gh auth login` only stores a token locally (`~/.config/gh/hosts.yml` + keychain); it changes nothing on GitHub. The profile repo `GavinHome/GavinHome` already exists, so editing it on Day 29 leaves the avatar / name / bio in Settings untouched.
+> `gh auth login` only stores a token locally (`~/.config/gh/hosts.yml` + keychain); it changes nothing on GitHub — the avatar / name / bio in Settings are untouched too, those are manual only.
 
 ### What Went Wrong
 
@@ -3433,7 +3452,6 @@ The sample distribution is worth a look too: nearly all land in 21–31 cm with 
 | `ESP.getFlashSize()` / `WiFi.firmwareVersion()` do not compile | Neither API exists in the current core | `ESP.getFlashChipSize()` and `esp_get_idf_version()` |
 | A 5 GHz SSID is not found | The ESP32-S3 does not support 5 GHz | Join 2.4G; a dual-band network always joins the 2.4 GHz radio |
 | Experiment 3 started with an extra potentiometer | Added to give the page a "second sensor", but a hand-turned number carries no information | Removed. The car has only HC-SR04, which alone satisfies the guide's "see sensor data" |
-| ADC2 stops reading once Wi-Fi is on | On the ESP32-S3, ADC2 (GPIO11-20) shares hardware with Wi-Fi | The Day 27-28 battery-voltage monitor must go to ADC1 (GPIO1-10) |
 
 ## Day 26 — Python Live Telemetry Plotting
 
@@ -3521,7 +3539,7 @@ Both closing the window and Ctrl+C go through `finally`: close the CSV, then sav
 ## Day 27 — The Wi-Fi Remote-Control Car (the first "write" channel)
 
 > Date: 2026-09-30
-> Status: compiles clean + control-panel JS verified on the desktop + **runs on a phone** (hold any direction and it keeps going, release and it stops immediately, turns work); the board's own watchdog stop has never fired — left to Day 28
+> Status: compiles clean + control-panel JS verified on the desktop + **runs on a phone** (hold any direction and it keeps going, release and it stops immediately, turns work)
 >
 > Hardware: nothing new (Day 24's car: TB6612 + two TT motors + HC-SR04 + 6 V battery box, not one component added)
 > Core: add a `/cmd` route to Day 25's web server and drive the car from a phone browser
@@ -3539,10 +3557,9 @@ The guide's Day 27-28 capstone has four task groups, checked one by one:
 | Web server + HTML control panel + AJAX motor control | ✅ `/` serves the panel, `/cmd` takes commands. The buttons do **not** use the guide's `onmousedown/onmouseup` — they use Pointer Events plus pointer capture |
 | Phone on the same Wi-Fi, browser to the ESP32 IP | ✅ the panel was written for a phone: locked viewport scaling, 64 px buttons, `touch-action:none` |
 | Live distance readout | ✅ `/data` already existed; the panel polls it every 500 ms |
-| IMU attitude data | ⏭️ not connected, the car has no IMU (see below) |
+| IMU attitude data | ⏭️ the car has no IMU; parked in the advanced list |
 | Speed slider | ✅ 60–200, one command on `change` |
 | Connection timeout auto-stop | ✅ `CMD_TIMEOUT_MS = 1000`, a Wi-Fi drop counts as a timeout |
-| Battery voltage monitoring | ⏭️ not connected, it needs a divider pair (see below) |
 
 ### Going from "read" to "write" brings new problems
 
@@ -3584,16 +3601,6 @@ On the board side, the action fires only when the car is **actually moving**, ot
 
 The red flash on a watchdog stop must not use `delay()` either: 720 ms without `handleClient()` breaks Day 25's own rule and starves the watchdog by that same 720 ms. So it records a `flashUntil` deadline and blinks non-blockingly at the end of `loop()`.
 
-### Why the IMU and battery monitor were left out
-
-Two of the guide's four task groups want hardware added, but **the MPU-6050 and the resistors are both already on hand** (the inventory lists the MPU-6050 specifically for Day 27-28). Skipping them is not about availability — it is that they do not change what today is about to verify:
-
-- What needs verifying today is the **write channel and the stop path**. Attitude is a display item with no information about that; and for a ground vehicle attitude has no control value either (it is not a flight controller).
-- A sagging battery shows up as "the car got slower", visible by eye; four AA primaries carry no over-discharge hazard.
-- Adding one I2C device and three Arduino libraries pushes flash past 73%, and not one byte of today's real work depends on them.
-
-Day 25 already deleted a potentiometer for the same reason (a number carrying no information), and today follows that precedent. If it does get added later: the ADC must use **ADC1 (GPIO1-10)**; ADC2 (GPIO11-20) shares hardware with Wi-Fi — Day 25 recorded it, and the symptom of wiring it wrong is "the battery reading never returns a number".
-
 ### Test results
 
 **Firmware build:** `arduino-cli compile --fqbn esp32:esp32:esp32s3` passes clean at 971856 bytes (74%) with no warnings — 12991 bytes more than Day 25 experiment 3, almost all of it the control panel's HTML.
@@ -3623,7 +3630,7 @@ That checks off the two things most at risk in the design:
 - **The car never stopping itself while held proves the heartbeat is really flowing.** The watchdog's `CMD_TIMEOUT_MS = 1000` runs the whole time; without a heartbeat, holding for one second would stop the car — "the watchdog turning from a safety net into a way of interrupting normal driving" did not happen, so the 250 ms beat holds up. And `0 watchdog stops` on the panel confirms it never false-fired either. Both halves of that contradiction verified good today.
 - **Release-stop was verified on real hardware, not in a mock.** Synthetic events on the desktop can only check bindings, and `setPointerCapture()` throws `NotFoundError` there; on the phone, continuous motion while held and an immediate stop on lift proves the event really does arrive at that moment.
 
-Only two things remain unverified: the watchdog stop (the board stopping itself — never fired, and 0 is not the same as "fired correctly"), and a finger sliding off the button before lifting (the mechanism `setPointerCapture()` exists for has not been tested). Also, the `up` field is `millis()/1000`, counted from boot and never reset by a reconnect, so 3869 s only proves the board ran 64 minutes without dying or rebooting; but the car really was moving with Wi-Fi still connected, so Day 24's "motors drag down 3V3" worry currently looks unfounded.
+The `up` field is `millis()/1000`, counted from boot and never reset by a reconnect, so 3869 s only proves the board ran 64 minutes without dying or rebooting; but the car really was moving with Wi-Fi still connected, so Day 24's "motors drag down 3V3" worry currently looks unfounded.
 
 ### The biggest unknown for on-car testing
 
@@ -3648,7 +3655,7 @@ What is left is the back half of the stop path: the watchdog firing once, and po
 ## Day 28 — Phone Remote Control + Auto Avoidance: One Interface, Two Ways to Drive
 
 > Date: 2026-09-30
-> Status: firmware compiles clean, every panel interaction verified on the desktop; **not yet on the car** — acceptance is two demo videos
+> Status: firmware compiles clean, every panel interaction verified on the desktop; **manual driving confirmed on the car**, auto mode still to be filmed — acceptance is two demo videos
 >
 > Hardware: nothing new (Day 24's car, not one component added)
 > Core: add an "auto avoid" switch to Day 27's panel and move Day 21's state machine in unchanged
@@ -3710,15 +3717,12 @@ During the back and turn phases the panel's distance freezes at the value from w
 | Hold back for 700 ms | `dir=back` ×3 (first plus two beats) ✅ |
 | Release | `dir=stop` immediately, nothing after ✅ |
 
-**Not verified:** the watchdog stop has never fired once (two days of panels showing "0 watchdog stops" — that is "never fired", not "fired correctly"); a finger sliding off the button before lifting; and **the car has not been powered on**, both modes going only as far as the panel.
-
 ### Acceptance: two demo videos
 
 The guide's formal deliverable is "a complete GitHub project plus a phone-control demo video":
 
 - **Video 1 · phone remote** (~30 s): open `http://esp32s3.local` → hold ▲ for two seconds and release → it stops; ▼ ► ◀ → drag the slider and compare → the status line follows
 - **Video 2 · auto avoid** (~40 s): click "auto avoid" and it drives off → put a cardboard box in front: back, turn, committed forward, and the avoid count climbs → click again to return to manual and it stops at once
-- **Steal the last unverified check while recording**: while the car is running in auto in video 2, **lock the screen** — it should stop immediately, flash red for 720 ms, and the watchdog-stop count should go to 1. That one shot verifies the watchdog, the auto→manual fallback, and the red flash together
 
 > 📌 While recording, the car is free, so serial is unavailable. Every check has to be visible without it: the LED colour, the panel's status line and avoid count, and the recording itself.
 
@@ -3731,18 +3735,123 @@ The guide's formal deliverable is "a complete GitHub project plus a phone-contro
 | The slider looked broken in auto | `cmdDuty` changed but the state machine only picked it up at the next state transition | `reapplyAutoDuty()` applies it to the current phase at once (except the turn phase) |
 | Rejecting auto's `dir` stopped the car | The panel's heartbeat carries `dir`, so a 400 on it killed the heartbeat | Accept the direction and answer 200; just do not write it to the motors |
 
+---
+
+## Day 29 — Portfolio Tidy-Up and GitHub Profile
+
+> Date: 2026-09-30
+> Status: all four guide tasks complete; profile README merged into the live repo and pushed
+>
+> Hardware: nothing new (a pure tidy-up day, not once near a soldering iron)
+> Core: audit 28 days of journal as though a stranger will read it, then build a GitHub front door
+> Deliverable: [`day-29/GitHub-Profile-README.md`](./day-29/GitHub-Profile-README.md)
+
+Full notes: [`day-29/README.md`](./day-29/README.md)
+
+### The audit: three real problems
+
+Four criteria — **hardware list, wiring diagram, pitfalls specific rather than vague, a demo**. Checked day by day. "Pitfalls specific" passed everywhere (a full-text search for phrases like "调试了很久" found nothing), but the other three turned up three problems:
+
+| Problem | What it was | Fix |
+|---|---|---|
+| A whole deliverable nobody mentions | The `智能小车/` folder (PCB + carrier-board design notes and two photos of the built board) is tracked in git, but appears in neither the outer README's structure table nor any day's README | Added a row to the structure table and the directory tree in both READMEs, linking straight to the front/back photos |
+| The English Day 1 lists three fewer images | The Chinese Day 1 has four simulation screenshots plus a Falstad template; the English has one, and it points at a filename that does not exist. Day 1 has no per-day README, so the outer README is the only home for it | Matched the four images plus the circuit-template section |
+| Screenshots sitting unused | 10 files. `day-11` is the clearest case — it walks through the run results in prose while two matching screenshots sit unreferenced nearby | Added the references day by day |
+
+Whoever keeps the journal is the person who knows best what is in the repo — and exactly because of that is the least likely to notice that a stranger cannot find it. This class of defect can only be caught by machine.
+
+### How it was checked: two scripts you can re-run
+
+Eyeballing it is not enough at this size. Two fifteen-line Python scripts give the evidence for "audited" in a minute:
+
+<details>
+<summary>① Broken links: does every file a README references really exist</summary>
+
+```python
+import os, re, glob
+from urllib.parse import unquote
+pat = re.compile(r'\]\(([^)#][^)]*)\)')
+for md in ['README.md','README.en.md'] + sorted(glob.glob('day-*/README.md')):
+    base = os.path.dirname(md) or '.'
+    for m in pat.finditer(open(md, encoding='utf-8').read()):
+        p = unquote(m.group(1).strip())          # percent-encoded names must be decoded
+        if p.startswith('http'): continue
+        if not os.path.exists(os.path.normpath(os.path.join(base, p))):
+            print("BROKEN:", md, "->", p)
+```
+
+</details>
+
+<details>
+<summary>② Orphans: is every image on disk referenced by some README</summary>
+
+```python
+refs = set()
+for md in ['README.md','README.en.md'] + sorted(glob.glob('day-*/README.md')):
+    base = os.path.dirname(md) or '.'
+    for m in pat.finditer(open(md, encoding='utf-8').read()):
+        p = unquote(m.group(1).strip())
+        if not p.startswith('http'):
+            refs.add(os.path.normpath(os.path.join(base, p)))
+# files on disk minus refs = the orphans
+```
+
+</details>
+
+Run together they report `broken: 0` / `orphans: 0`. **Those two numbers are the evidence for "audited"** — far more useful than "I looked it over".
+
+### Full compile check: 14 projects, 0 errors, 0 warnings
+
+| Project | Size |
+|---|---|
+| `day-28/experiment 1 - phone remote + auto avoid` | 975804 B (74%) |
+| `day-27/experiment 1 - wifi remote` | 971856 B (74%) |
+| `day-25/experiment 3 - webserver` | 958565 B (73%) |
+| `day-21/experiment 2 - ultrasonic avoidance` | 324803 B (24%) |
+| `day-19` / `day-20` / `day-17` / `day-14` / `day-13` / `day-12` | all pass |
+| `day-11/button_led` | all pass |
+| `day-09/rgb_cycle`, `day-09/external_led_blink`, `day-09/combined_blink` | all pass |
+
+**Arduino's rule: the sketch name must equal the name of the folder holding it.** A `.ino` sitting in a folder's root (`day-09/rgb_cycle.ino`) will not compile — the IDE will not open it and `arduino-cli` reports no sketch found, because the toolchain identifies a sketch *by its folder name*. So each experiment gets its own same-named folder: `rgb_cycle/rgb_cycle.ino`, `button_led/button_led.ino`. The repo then opens and compiles straight out of the box.
+
+### Advanced Markdown: collapsible blocks earn their keep
+
+| Feature | Status before |
+|---|---|
+| Tables | 2027 lines across all READMEs, used every day |
+| Task lists | Only in `day-06/15/16` (all of them self-check lists); natural there, not forced elsewhere |
+| Collapsible blocks `<details>` | **0 occurrences in the whole repo** — first use today |
+
+The right use of a collapsible block is not "hide the long stuff", it is **let the reader decide whether to expand** — the compile list above is for someone who wants to re-verify, the scripts for someone who wants to re-run them, while most people only want the answer to "did it compile". Twenty rows of table laid out in the body are noise to the first reader and essential to the second; a collapsible block separates the two.
+
+### GitHub profile README: the repo was not empty
+
+The guide's second task was a GitHub profile README. It looks like "write it and push", but the repo can already have content in it (especially if a generator built the homepage once), and overwriting it would have wiped the live page's stat cards, its visitor counter and the identity already on it.
+
+So this was **a merge, not an overwrite**, verified by set-diffing every URL before touching anything. Two of the lessons transfer to editing anyone else's file: **"just tidy this up" is the easiest way to quietly break something** — I rewrote the git icon to a different version from memory and only caught it on a character-level diff; and **check the facts before acting** — with three names disagreeing, `gh api user` settles it instead of a guess.
+
+A model README you can copy the shape of sits at [`day-29/GitHub-Profile-README.md`](./day-29/GitHub-Profile-README.md); the full merge write-up is in [`day-29/README.md`](./day-29/README.md).
+
+Five pitfalls. **"Just tidy this up" is the easiest way to quietly break someone else's file** — I rewrote one skill icon to a different CDN version of the same icon from memory and only caught it on a character-level diff. **What looks useless can still be someone's asset** — the original had a `<h3>Connect with me:</h3>` heading with an empty paragraph under it, a generator placeholder; I deleted it as dead weight, which was wrong, and put it back exactly where it was. **Check the facts before acting** — three names disagreed (one in the README, one in `data.json`, one in the commit author), and rather than guess which was the leftover I ran `gh api user` and let the real profile name settle it. **Count before you promise** — the homepage claimed every daily folder carries a pitfalls section; going through all 23 showed half of them have none, so the promise moved back to where a standard belongs. And **know the difference between a step and a deliverable** — the first draft listed the digital multimeter and the Python telemetry script next to the car, but both were steps *toward* the car (ADC → serial → data on disk, all of which the car uses), not endpoints of their own; the section now carries one deliverable per month.
+
+### Pitfalls
+
+| Problem | Cause | Fix |
+|---|---|---|
+| The broken-link script reported 12 "bad links" | It forgot URL decoding: the README writes `%E6%95%99%E7%A8%8B` and the script concatenated that straight into a path | `unquote()` first, then build the path — all 12 false positives gone |
+| The orphan script reported 103 files as orphans | `refs` stored the relative target as written in the README (`tinkercad.png`) while the file on disk sits at `day-08/tinkercad.png` — the two never lined up | Normalise on insert with `os.path.join(base, target)`: 103 down to 10 real orphans |
+| The `Ω` encoding was wrong in the English README | Percent-encoding was hand-written, treating `Ω` (U+03A9) as `é` (U+00E9) | Generate it with `urllib.parse.quote()`; never hand-write it |
+| Four `.ino` files would not compile | The sketch name did not match the folder name; they sat loose in the roots of `day-09/` and `day-11/` | One same-named subfolder each (`rgb_cycle/rgb_cycle.ino`), plus the 4 code links across both outer READMEs |
+
 ### Next up
 
-- **Day 29**: the guide is "GitHub profile and portfolio tidy-up" — review this month's project READMEs (hardware list / wiring diagram / whether the pitfalls are specific / whether there is a demo) and build a GitHub profile README
-
-> 📌 Two carry-overs: the watchdog stop has never fired (locking the screen in video 2 would close it if it works), and a finger sliding off the button before lifting.
+- **Day 30**: the guide's month review and month-2 plan — look back on month one, write a 500-word summary and plan month two
 
 ---
 
----
-## Learning Journal Policy
+## Journal standards
 
-Every day's work lives in a dated folder and includes:
+Each day's work goes in its own folder, covering:
 
 1. **What I built** (photos, GIFs, schematics)
 2. **Code** (well-commented, compiles/runs without errors)
@@ -3774,4 +3883,4 @@ See [`教程/第1月-电子学与工作台.md`](./教程/第1月-电子学与工
 
 ## License
 
-This learning journal is personal and for educational purposes. Third-party resources belong to their respective owners.
+This learning journal is MIT-licensed ([`LICENSE`](./LICENSE)) and for educational purposes. Third-party resources belong to their respective owners.

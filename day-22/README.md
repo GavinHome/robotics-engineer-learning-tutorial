@@ -86,7 +86,7 @@ pyserial 3.5 | matplotlib 3.11.1
 | 模拟量输入 | 1 | **ADC1_CH0** |
 | 板载 RGB | 48 | 心跳灯 |
 
-> ⚠️ **GPIO1 而不是 GPIO11。** ESP32-S3 的 ADC2（GPIO11-20）与 Wi-Fi 共用一套硬件，开着 Wi-Fi 时 `analogRead()` 会失败。Day 27 要同时跑 Wi-Fi 和电池电压监测，从今天起就一律走 ADC1（GPIO1-10），养成习惯。
+> ⚠️ **GPIO1 而不是 GPIO11。** ESP32-S3 的 ADC2（GPIO11-20）与 Wi-Fi 共用一套硬件，开着 Wi-Fi 时 `analogRead()` 会失败。车上一旦要同时跑 Wi-Fi，模拟量就得走 ADC1（GPIO1-10）。
 
 三个不那么显然的决定：
 

@@ -137,7 +137,7 @@ duty = 180 / 255 ≈ 70.6%
                └───┴──── 电机两端（不分极性）
 ```
 
-模块本体与丝印见 [`TB6612FNG-2.png`](./TB6612FNG-2.png)：`VM / GND / VCC / STBY / PWMA / AIN1 / AIN2 / AO1 / AO2` 一组是 A 通道，另一组 B 通道（`BO1 / BO2` / `BIN1 / BIN2 / PWMB`）本项目空着不接。电机实物见 [`TT马达.png`](./TT马达.png)。
+模块本体与丝印见 [`TB6612FNG-2.png`](./TB6612FNG-2.png)，引脚排布见 [`TB6612FNG-1.png`](./TB6612FNG-1.png)：`VM / GND / VCC / STBY / PWMA / AIN1 / AIN2 / AO1 / AO2` 一组是 A 通道，另一组 B 通道（`BO1 / BO2` / `BIN1 / BIN2 / PWMB`）本项目空着不接。电机实物见 [`TT马达.png`](./TT马达.png)。
 
 三条容易踩的线：
 
