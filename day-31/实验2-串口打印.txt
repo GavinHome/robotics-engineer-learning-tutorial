@@ -1,0 +1,27 @@
+13:52:14.388 -> ESP-ROM:esp32s3-20210327
+13:52:14.388 -> Build:Mar 27 2021
+13:52:14.388 -> rst:0x1 (POWERON),boot:0x28 (SPI_FAST_FLASH_BOOT)
+13:52:14.388 -> SPIWP:0xee
+13:52:14.388 -> mode:DIO, clock div:1
+13:52:14.388 -> load:0x3fce2820,len:0x10cc
+13:52:14.420 -> load:0x403c8700,len:0xc2c
+13:52:14.420 -> load:0x403cb700,len:0x30c0
+13:52:14.420 -> entry 0x403c88b8
+13:52:14.519 -> Day31 中断版：等外接 LED 亮起（板载转蓝）后再按键
+13:52:18.227 -> reaction = 428 ms
+13:52:25.221 -> reaction = 768 ms
+13:52:30.975 -> reaction = 302 ms
+13:52:37.086 -> reaction = 206 ms
+13:52:40.377 -> 抢跑！灯还没亮，本轮重新开始
+13:52:44.725 -> reaction = 209 ms
+13:52:50.593 -> reaction = 197 ms
+13:52:56.582 -> reaction = 193 ms
+13:53:02.236 -> reaction = 217 ms
+13:53:06.674 -> reaction = 312 ms
+13:53:11.345 -> reaction = 204 ms
+13:53:17.108 -> reaction = 189 ms
+13:53:21.052 -> reaction = 257 ms
+13:53:26.931 -> reaction = 196 ms
+13:53:31.212 -> reaction = 286 ms
+13:53:34.965 -> 抢跑！灯还没亮，本轮重新开始
+13:53:38.049 -> reaction = 271 ms

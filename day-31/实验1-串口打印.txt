@@ -1,0 +1,39 @@
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x1 (POWERON),boot:0x8 (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30c0
+entry 0x403c88b8
+Day31 轮询版：等外接 LED 亮起（板载转蓝）后再按键
+[轮询] loop = 486987 圈/秒
+[轮询] loop = 503605 圈/秒
+[轮询] loop = 503654 圈/秒
+[轮询] loop = 503655 圈/秒
+[轮询] loop = 504165 圈/秒
+[轮询] loop = 526986 圈/秒
+reaction = 1802 ms
+[轮询] loop = 554702 圈/秒
+[轮询] loop = 652483 圈/秒
+[轮询] loop = 544934 圈/秒
+[轮询] loop = 503655 圈/秒
+[轮询] loop = 508765 圈/秒
+reaction = 750 ms
+[轮询] loop = 585895 圈/秒
+[轮询] loop = 652483 圈/秒
+[轮询] loop = 507917 圈/秒
+[轮询] loop = 503655 圈/秒
+[轮询] loop = 503654 圈/秒
+reaction = 788 ms
+[轮询] loop = 544280 圈/秒
+[轮询] loop = 652317 圈/秒
+[轮询] loop = 555491 圈/秒
+[轮询] loop = 503655 圈/秒
+[轮询] loop = 503654 圈/秒
+[轮询] loop = 503654 圈/秒
+reaction = 358 ms
+[轮询] loop = 584068 圈/秒
+[轮询] loop = 652317 圈/秒
+[轮询] loop = 505688 圈/秒

@@ -10,7 +10,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
 | [`智能小车/`](./智能小车/) | Smart-car PCB and carrier-board design notes + photos of the built board ([`智能小车-正面.png`](./智能小车/智能小车-正面.png) ｜ [`智能小车-背面.png`](./智能小车/智能小车-背面.png)) |
-| [`day-01/`](./day-01/) … [`day-30/`](./day-30/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-31/`](./day-31/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -162,6 +162,7 @@ robotics-engineer-learning-tutorial/
 ├── day-28/                      ← Day 28: remote control + auto avoidance in one firmware (mode switch + heartbeat semantics extended + demo videos)
 ├── day-29/                      ← Day 29: portfolio tidy-up and GitHub profile (README audit + profile README + full compile check)
 ├── day-30/                      ← Day 30: monthly review and month-2 prep (main thread + inventory + shopping list)
+├── day-31/                      ← Day 31: interrupts — a reaction-timer game (polling vs interrupt, three-state machine)
 └── 智能小车/                    ← smart-car PCB and carrier-board design notes + photos of the built board
 ```
 
@@ -3907,9 +3908,55 @@ Month two is a **pure hardware month** with the loop closed on a real car, and n
 | The review started as 30 diary entries | One flat paragraph per day hid the through-line | Merge them along sense–decide–act and keep only the events that changed that line |
 | The month-1 guide was still pointing at month 1's "next up" once month 2 started | Both day chapters claimed the next day, so two "next up" entries were live at once | Keep exactly one, at the tail of the newest chapter |
 
+---
+
+## Day 31 — Interrupts: A Reaction Timer Game
+
+> Hardware: nothing bought (10 buttons, 51 LEDs, 1kΩ resistors all on the shelf), USB powered, the car is not touched
+> Core: what an interrupt is, why an encoder is useless without one, and the three traps that come with it
+> Full log: [`day-31/README.md`](./day-31/README.md)
+
+The first stop of month two is not a new part but **interrupts**. The reason is plain: an encoder counts pulses, pulses keep coming once the motor turns, and asking `digitalRead()` once per `loop()` iteration cannot keep up — whatever falls between the asks is lost. So before wiring an encoder, interrupts get learned on an experiment that is visible, touchable and wrong the instant a mistake is made: **a human button-press reaction time**.
+
+### Experiment design: two sketches, one game
+
+The rules are fixed — the external LED lights after a random 2–5 s delay, press the button as soon as it lights and the sketch prints `reaction = xx ms`; pressing before the light counts as a "false start" and voids the round. A three-state machine `WAIT → TIMING → RESULT`, `millis()` comparisons always by subtraction (correct across rollover), and not a single `delay()` anywhere.
+
+| | Sketch 1 polling | Sketch 2 interrupt |
+|---|---|---|
+| Who notices the press | `digitalRead() == LOW` in `loop()` | `attachInterrupt()` on FALLING, timestamp taken inside the ISR |
+| Debounce | timestamp compared in `loop()` | timestamp compared **inside the ISR** |
+| Per-second stat | `loop = xx rounds/s` | none (the interrupt version is unaffected by loop speed) |
+
+The onboard WS2812B is the status light (`RgbCycle::setColor()`, `update()` never called): green = random wait, blue = timing, yellow = round over, red = false start. The external LED goes through 1kΩ to GND — about 3mA at 3.3V; a "go" signal does not need to be bright.
+
+### The three traps of interrupts
+
+**Trap 1: no `Serial.print`, no `delay()` inside an ISR.** `Serial.printf()` busy-waits when the data has not drained, `delay()` suspends outright, and both stall the main loop. This experiment's ISR only reads `millis()`, writes three `volatile` variables and sets a flag; printing, lamp control and scoring all happen in `loop()`.
+
+**Trap 2: shared variables must be `volatile`.** The compiler does not know the ISR quietly rewrites `evt` / `tPress`, so it may optimise away `loop()`'s reads of them ("read two lines ago, cannot have changed"), and the event is then waited for forever. `volatile` only stops that optimisation and **grants no atomicity**, which is why the ISR writes `tPress` before setting `evt` and `loop()` reads `evt` before reading `tPress` — "flag after data" guarantees a fresh timestamp.
+
+**Trap 3: an ESP32 ISR must carry `IRAM_ATTR`.** By default code lives in flash, and flash cannot be read while its cache is disabled (for example while flash itself is being written), so an ISR reaching for it hangs the chip. `IRAM_ATTR` places the function in IRAM, executable at any moment.
+
+One trap found along the way: the guide's `randomSeed(analogRead(1))` samples the button pin GPIO1, which is held high by the internal pull-up, so every power-up reads the same value and the random sequence is identical at every boot. The fix was to leave a dedicated floating GPIO3 as the seed source, relying on the thermal noise of a floating ADC input.
+
+### Test results — both sketches measured
+
+| Version | Fastest reaction | Median | `loop` rounds/s |
+|---|---|---|---|
+| Polling (empty loop) | **358 ms** | 769 ms | 487k–652k |
+| Polling (`delay(50)` added in loop) | **200 ms** | 250 ms | **20** |
+| Interrupt | **189 ms** | 217 ms | n/a (does not depend on loop) |
+
+Sketch 1 measured four rounds: 1802 / 750 / 788 / 358 ms. Human scatter alone spans 5x, while an empty `loop()` iteration costs about 2 µs and the polling version's worst-case detection latency is only millisecond-scale — **under 1% of 358 ms**. So comparing reaction times was never going to reveal what an interrupt buys. Sketch 2's fifteen rounds (fastest 189 ms, median 217 ms) say the same thing: the median looks far better than sketch 1's, but that is a **practice effect** across a one-hour gap (the first two rounds at 428 / 768 ms were cold), not an edge trigger beating polling.
+
+What the data does prove: with the interrupt version, `loop()` asks nothing while timing (not a single `digitalRead()` — the `ST_TIMING` branch just breaks), yet it caught all fifteen presses and both false starts. Press detection happens entirely inside the ISR and does not care how slow `loop()` gets.
+
+The control group (same sketch, `delay(50)` switched on) makes polling's price visible: 21 rounds of 200 / 250 / 300 / 350 / 400 ms, median 250, fastest 200 — **not one of them anything but a multiple of 50**. With `loop = 20` rounds/s both `now` and `tLight` can only be sampled at a loop boundary, so **the measurement resolution itself is quantised by the loop period**; the millisecond-scale numbers the interrupt version produced (189 / 193 / 197 / 204…) are simply inexpressible under a slow polling loop. The median sits 33 ms above the interrupt version's, and that is an underestimate — this run came later, so practice should have pulled the numbers down. That is exactly the property an encoder needs: when pulses arrive faster than `loop()`, polling does not notice late, it misses the pulse outright, and `ticks` is short by one forever.
+
 ### Next up
 
-- **Day 31**: into month two, starting with **interrupts** — a reaction-timer game on the button and LED already on hand, because encoder counting has to rely on interrupts; no idle time before the new parts arrive, then straight into encoder closed loop
+- **Day 32**: once the encoder motors arrive, hook `attachInterrupt()` to the encoder's phase A so every pulse increments `ticks` — interrupts moving from "a button pressed once" to "an unending stream", which is their home turf
 
 ---
 
