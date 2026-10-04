@@ -3877,13 +3877,15 @@ Day-by-day guide: [`进度/第2月-30天逐日指南.md`](./进度/第2月-30天
 
 | Week | Days | Content |
 |---|---|---|
-| 1 | Day 31–37 | interrupts → encoders → rpm conversion → P speed loop → exactly one revolution |
-| 2 | Day 38–44 | reading an I2C sensor straight from its datasheet → pitch drift → complementary filter → < 1° drift over 60 s at rest |
-| 3 | Day 45–51 | ⭐ line-following robot (5× TCRT5000 → position value → P → PD → tuning comparison video) |
+| 1 | Day 31–38 | interrupts → TCRT5000 datasheet → five-channel position → lost-line handling → ⭐ open-loop line following (the car gets built) → P → D → tuning comparison video |
+| 2 | Day 39–45 | reading an I2C sensor straight from its datasheet → pitch drift → complementary filter → < 1° drift over 60 s at rest → review |
+| 3 | Day 46–51 | encoder pulses → rpm conversion → duty cycle ≠ speed → P speed loop → exactly one revolution → stop after N revolutions |
 | 4 | Day 52–58 | ⭐ self-balancing robot (angle loop → PD → speed loop → remote tuning) |
 | Close | Day 59–60 | monthly review + two running robots on GitHub + month-3 prep |
 
-The internal order cannot be reversed: encoders and closed loop first (a measurable speed is what makes control possible), then attitude fusion (the prerequisite for balancing), then line following (built on differential drive and PWM), and self-balancing last, which consumes everything from the first two.
+The order follows what is already on the shelf, not a tidy knowledge ladder: week 1 waits only for the five TCRT5000 modules — added to month one's 2WD chassis and TT motors the car can follow a line straight away, **no new motors needed**; week 2 is attitude fusion, the MPU-6050 having been in the kit all along; week 3 finally reaches encoders, which conveniently fills the wait for the N20 motors — better to learn something than idle.
+
+One hard constraint remains: **the encoder block (Day 46–51) must be finished before Day 52**. Day 53 swaps in the encoder motors themselves, and Day 56's speed loop leans directly on Day 46–47 — leave either unfinished and the whole balancing week stalls.
 
 ### Inventory check: nothing wasted, only two things to buy
 
@@ -3956,7 +3958,7 @@ The control group (same sketch, `delay(50)` switched on) makes polling's price v
 
 ### Next up
 
-- **Day 32**: once the encoder motors arrive, hook `attachInterrupt()` to the encoder's phase A so every pulse increments `ticks` — interrupts moving from "a button pressed once" to "an unending stream", which is their home turf
+- **Day 32**: once the five TCRT5000 modules arrive, follow the routine used for the HC-SR04 back on Day 17 — datasheet first, wiring second. The three AO readings for a single module (black / white / held 5 cm in the air) are the foundation the whole line follower rests on. Today's `attachInterrupt()` stays parked for now; its home turf arrives with the N20 motors in the Day 46 week, where pulses stream in without pause and a single missed tick is lost forever
 
 ---
 
