@@ -159,7 +159,7 @@ robotics-engineer-learning-tutorial/
 ├── day-25/                      ← Day 25: first Wi-Fi on the ESP32-S3 (2.4 GHz join + connect timeout / auto-reconnect + hand-rolled HTTP + TLS + web server)
 ├── day-26/                      ← Day 26: Python live telemetry plotting (HTTP poll of /data + 60 s rolling window + NaN line breaks + CSV)
 ├── day-27/                      ← Day 27: Wi-Fi remote-control car (/cmd write route + phone control panel + connection watchdog)
-├── day-28/                      ← Day 28: remote control + auto avoidance in one firmware (mode switch + heartbeat semantics extended + demo videos)
+├── day-28/                      ← Day 28: remote control + auto avoidance in one firmware (mode switch + heartbeat semantics extended + demo video)
 ├── day-29/                      ← Day 29: portfolio tidy-up and GitHub profile (README audit + profile README + full compile check)
 ├── day-30/                      ← Day 30: monthly review and month-2 prep (main thread + inventory + shopping list)
 ├── day-31/                      ← Day 31: interrupts — a reaction-timer game (polling vs interrupt, three-state machine)
@@ -3657,11 +3657,12 @@ What is left is the back half of the stop path: the watchdog firing once, and po
 ## Day 28 — Phone Remote Control + Auto Avoidance: One Interface, Two Ways to Drive
 
 > Date: 2026-09-30
-> Status: firmware compiles clean, every panel interaction verified on the desktop; **manual driving confirmed on the car**, auto mode still to be filmed — acceptance is two demo videos
+> Status: firmware compiles clean, every panel interaction verified on the desktop, both modes confirmed on the car; 
 >
 > Hardware: nothing new (Day 24's car, not one component added)
 > Core: add an "auto avoid" switch to Day 27's panel and move Day 21's state machine in unchanged
 > Code: [`experiment 1 - phone remote + auto avoid`](./day-28/%E5%AE%9E%E9%AA%8C1-%E6%89%8B%E6%9C%BA%E9%81%A5%E6%8E%A7%E4%B8%8E%E8%87%AA%E5%8A%A8%E9%81%BF%E9%9A%9C/%E5%AE%9E%E9%AA%8C1-%E6%89%8B%E6%9C%BA%E9%81%A5%E6%8E%A7%E4%B8%8E%E8%87%AA%E5%8A%A8%E9%81%BF%E9%9A%9C.ino)
+> Demo video: [`WiFi remote + auto avoid car.mov`](./day-28/%E6%97%A0%E7%BA%BF%E6%8E%A7%E5%88%B6+%E8%87%AA%E5%8A%A8%E9%81%BF%E9%9A%9C%E5%B0%8F%E8%BD%A6.mov) (25 s)
 
 Full notes: [`day-28/README.md`](./day-28/README.md)
 
@@ -3719,14 +3720,23 @@ During the back and turn phases the panel's distance freezes at the value from w
 | Hold back for 700 ms | `dir=back` ×3 (first plus two beats) ✅ |
 | Release | `dir=stop` immediately, nothing after ✅ |
 
-### Acceptance: two demo videos
+**On the car**: both manual driving and auto avoidance were confirmed on the real hardware; see the demo video below.
 
-The guide's formal deliverable is "a complete GitHub project plus a phone-control demo video":
+### Acceptance: the demo video
 
-- **Video 1 · phone remote** (~30 s): open `http://esp32s3.local` → hold ▲ for two seconds and release → it stops; ▼ ► ◀ → drag the slider and compare → the status line follows
-- **Video 2 · auto avoid** (~40 s): click "auto avoid" and it drives off → put a cardboard box in front: back, turn, committed forward, and the avoid count climbs → click again to return to manual and it stops at once
+The guide's formal deliverable is "a complete GitHub project plus a phone-control demo video". It is recorded — one 25-second take covering both halves: **a human drives first, then auto is switched on and it runs by itself, then one more tap and it stops at once**.
 
-> 📌 While recording, the car is free, so serial is unavailable. Every check has to be visible without it: the LED colour, the panel's status line and avoid count, and the recording itself.
+[`WiFi remote + auto avoid car.mov`](./day-28/%E6%97%A0%E7%BA%BF%E6%8E%A7%E5%88%B6+%E8%87%AA%E5%8A%A8%E9%81%BF%E9%9A%9C%E5%B0%8F%E8%BD%A6.mov) (HEVC, 1080×1920 portrait, 29.97 fps, 747 frames, 24.9 s)
+
+| Time | On screen | On the car |
+|---|---|---|
+| 0–15 s | open `esp32s3.local` in the phone browser, the panel appears; direction keys, speed slider and status line are the manual set | drives to the panel's commands, stops the moment you release |
+| ~15–20 s | tap "auto avoid" → the button reads "in auto · tap to leave manual", the status line shows `auto · cruise`, the front distance keeps changing (57.2 → 16.5 cm as it walks toward a wall) | runs forward on its own |
+| ~20–25 s | tap again → the button reads "auto avoid" | stops instantly, back to a clean stopped manual state |
+
+**Connections are this project's hidden requirement.** The video was recorded after re-seating the wires and soldering the joints that needed soldering. From Day 24 to Day 27 the car stayed on a breadboard with Dupont leads: it worked, but every connector was a "works most of the time" point. Day 18 logged a pitfall of exactly this shape — `mpu.begin()` reported `not found` while a scanner on the same wires found 0x68, caused by a female header not fully seated; a scan only needs one lucky transaction, library init needs an unbroken run. The conclusion here is the same: Wi-Fi remote plus auto avoidance is a chain that needs unbroken success (a heartbeat within 1 s for the watchdog, an ultrasonic pulse every 100 ms), and any loose contact shows up as a symptom that looks like a software bug — dropped connections, timeout stops. So solder what should be soldered: it is a reliability question, not a tidiness one.
+
+> 📌 While recording, the car is free, so serial is unavailable. Every check has to be visible without it: the LED colour, the panel's status line and distance readout, the button label, and the recording itself.
 
 ### Pitfalls
 
