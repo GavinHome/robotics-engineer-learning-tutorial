@@ -10,7 +10,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
 | [`智能小车/`](./智能小车/) | Smart-car PCB and carrier-board design notes + photos of the built board ([`智能小车-正面.png`](./智能小车/智能小车-正面.png) ｜ [`智能小车-背面.png`](./智能小车/智能小车-背面.png)) |
-| [`day-01/`](./day-01/) … [`day-31/`](./day-31/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-32/`](./day-32/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -163,6 +163,8 @@ robotics-engineer-learning-tutorial/
 ├── day-29/                      ← Day 29: portfolio tidy-up and GitHub profile (README audit + profile README + full compile check)
 ├── day-30/                      ← Day 30: monthly review and month-2 prep (main thread + inventory + shopping list)
 ├── day-31/                      ← Day 31: interrupts — a reaction-timer game (polling vs interrupt, three-state machine)
+├── day-32/                      ← Day 32: TCRT5000 — one module, three AO readings (black HIGH / white LOW + height sweep, mount at 3cm)
+├── day-33/ … day-60/            📌 to come (Day 33-38 line following / Day 39-45 attitude fusion / Day 46-51 encoder closed loop / Day 52-58 self-balancing / Day 59-60 review)
 └── 智能小车/                    ← smart-car PCB and carrier-board design notes + photos of the built board
 ```
 
@@ -3966,9 +3968,72 @@ What the data does prove: with the interrupt version, `loop()` asks nothing whil
 
 The control group (same sketch, `delay(50)` switched on) makes polling's price visible: 21 rounds of 200 / 250 / 300 / 350 / 400 ms, median 250, fastest 200 — **not one of them anything but a multiple of 50**. With `loop = 20` rounds/s both `now` and `tLight` can only be sampled at a loop boundary, so **the measurement resolution itself is quantised by the loop period**; the millisecond-scale numbers the interrupt version produced (189 / 193 / 197 / 204…) are simply inexpressible under a slow polling loop. The median sits 33 ms above the interrupt version's, and that is an underestimate — this run came later, so practice should have pulled the numbers down. That is exactly the property an encoder needs: when pulses arrive faster than `loop()`, polling does not notice late, it misses the pulse outright, and `ticks` is short by one forever.
 
+---
+
+## Day 32 — TCRT5000: three AO readings from a single module
+
+> Hardware: TCRT5000 x1 (the only part month two needed; five arrived, today one is used)
+> Core: AO and DO are the same signal in two shapes, why VCC is 3V3, and a measured direction — black HIGH, white LOW — that contradicts the obvious guess
+> Full log: [`day-32/README.md`](./day-32/README.md)
+
+Everything the line-following week (Day 32-38) rests on is one fact: **point this module down at a black-and-white floor and the AO pin outputs a continuous voltage**. Today uses one module and one signal wire, and pins down three things: what black reads, what white reads, what nothing reads, and whether those numbers are adequately far apart. This follows the Day 17 routine for the HC-SR04 — datasheet first, wiring second, no control law yet.
+
+### AO and DO: the same signal in two shapes
+
+Four pins, VCC / GND / DO / AO. DO comes off an LM393 comparator whose threshold the onboard 104 pot sets, leaving only two states, "above threshold / not". AO is the receiver's voltage straight out, with nothing done to it.
+
+**Today AO only.** The first thing a line follower has to understand is the gradient between black, white and grey, and a binary output flattens all of it away. DO waits for Day 34, when thresholds get fixed.
+
+### Why VCC goes to 3V3 and not 5V
+
+AO's amplitude tracks VCC. On 5V, AO climbs past 4V, above the ESP32-S3's 3.3V ADC ceiling — beyond that the reading pegs at 4095 and black and white both slam into the ceiling, which makes the test pointless. On 3V3, AO can never exceed VCC itself, the ADC is safe, and no divider resistor is needed.
+
+AO lands on **GPIO6 = ADC1_CH5**. GPIO2~7 are still free on ADC1, enough for the five modules Day 33 lines up, and GPIO6 stays clear of the Day 12 pot (GPIO1), the Day 17 ultrasonic (GPIO4/5), the Day 18 I2C (GPIO8/9) and the Day 21 TB6612 (GPIO10~17).
+
+### Three design choices in the sketch
+
+**10Hz sampling, no faster.** `PERIOD_MS = 100`, for watching a trend rather than for control — the control cycle only drops to the 10ms class after Day 36.
+
+**raw and mV converted from the same sample.** `mv = raw x 3300 / 4095`; `analogReadMilliVolts()` was deliberately avoided because it runs a second, eFuse-calibrated conversion internally, so raw and mV would come from two different samples and the two printed columns would not line up, which looks like noise. Converting from the same raw keeps the two columns identical forever.
+
+**Switching a segment resets it.** Sending `b` / `w` / `a` starts that segment and clears it, so replaying does not need an `r` first. The onboard RGB follows: red = black, white = white, blue = held in air, green = idle.
+
+### Measured: black HIGH, white LOW — opposite of the guide's guess
+
+| Surface | raw (three runs) |
+|---|---|
+| Black | 4095 (pegged at the ceiling all three times) |
+| Held 5cm in air | 2449 / 2373 / 2682 |
+| White | 1934 / 1755 / 1680 |
+
+The direction came back reversed at the last link of the chain: this board taps AO from the phototransistor's **collector through a pull-up resistor** — more reflected light → more receiver current → more drop across the pull-up → lower collector voltage. So black absorbs, current is at its minimum, and AO sits highest, right at VCC. Different factories tap a different node and no datasheet says which, so the direction has to be measured, never guessed: guess it backwards and the sign of `Kp` on Day 36 is backwards too (when the line drifts left the leftmost sensor reads highest, so a "high = positive" weighting of `pos` makes it positive, i.e. `pos > 0` means drifted left).
+
+A consequence: black sits at 4095 = 3300 mV = the 3V3 rail forever with **zero headroom**, and no change of height shows up in it; only the white side carries grey-level information.
+
+### The summary table's min/max is not the noise band
+
+The min/max columns carry transition samples caught mid-flight: a white minimum of 256 is the black value from the second the module was slid over, and a black maximum that never leaves 4095 is the ceiling. The real noise band has to come from a settled plateau — the height sweep's per-plateau p2p runs 93~165 counts (about 75~133 mV). **The black-to-white difference is 2395 counts, about 1.93 V, 15~24x the noise band**, so the Day 33 threshold sits at raw ≈ 2900, the midpoint, leaving an order of magnitude on either side.
+
+### Height curve: at 5cm white and "nothing" look identical
+
+| Module above the desk | AO raw | gap to black 4095 | gap to air ~2550 |
+|---|---|---|---|
+| 5cm | 2705 | 1390 | **205** |
+| 4cm | 2145 | 1950 | 355 |
+| **3cm** | **1499** | **2596** | **1001** |
+| 2cm | 527 | 3568 | 1973 |
+
+The 5cm row is the decisive one: white reads 2705 against about 2550 held in the air, a difference of only 205 counts, **smaller than the noise band** — white paper and "nothing underneath" collide. Lift it any higher and black, white and air stop being three distinct things.
+
+Each centimetre closer costs white 560~970 counts, 5~6x the noise band, so the reading is extremely height-sensitive — **the five modules must be mounted at a rigidly fixed height**; a chassis that flexes or a pad that squashes is enough to misread a wide patch. The choice is **3cm**: the largest headroom against black, 1001 counts clear of the air reading (6x the noise band, and the quantity Day 35 uses to detect a lost line), and a height sensitivity of about 650 counts/cm that is still tolerable.
+
+### What went wrong & how I fixed it
+
+**Calibration drifts.** Across the three runs, taken about three minutes apart, the white mean drifted monotonically down 1934 → 1755 → 1680 (254 counts, 2.5x the noise band) while the air reading bounced between 2373 and 2682. That is not device noise (the noise band is only about 100 counts), it is the environment — hand position, desk reflections and module temperature all move. So the Day 33 threshold **must not hard-code a raw value**: either recalibrate at every power-up, or switch to a relative criterion ("how far below the current settled white value").
+
 ### Next up
 
-- **Day 32**: once the five TCRT5000 modules arrive, follow the routine used for the HC-SR04 back on Day 17 — datasheet first, wiring second. The three AO readings for a single module (black / white / held 5 cm in the air) are the foundation the whole line follower rests on. Today's `attachInterrupt()` stays parked for now; its home turf arrives with the N20 motors in the Day 46 week, where pulses stream in without pause and a single missed tick is lost forever
+- **Day 33**: five modules mounted side by side along the chassis front edge, black and white thresholds calibrated one by one, then fused into a `-1000 ~ +1000` line-position value. Today's 3cm is the common mounting height for all five, and the thresholds follow the rule above — recalibrate at every power-up, never hard-code
 
 ---
 

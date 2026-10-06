@@ -1,0 +1,178 @@
+AIR   raw=2677  mv=2157.3
+AIR   raw=2677  mv=2157.3
+AIR   raw=2663  mv=2146.0
+AIR   raw=2695  mv=2171.8
+AIR   raw=2708  mv=2182.3
+AIR   raw=2717  mv=2189.5
+AIR   raw=2699  mv=2175.0
+AIR   raw=2701  mv=2176.6
+AIR   raw=2675  mv=2155.7
+AIR   raw=2687  mv=2165.3
+AIR   raw=2688  mv=2166.2
+AIR   raw=2683  mv=2162.1
+AIR   raw=2681  mv=2160.5
+AIR   raw=2687  mv=2165.3
+AIR   raw=2697  mv=2173.4
+AIR   raw=2687  mv=2165.3
+AIR   raw=2683  mv=2162.1
+AIR   raw=2699  mv=2175.0
+AIR   raw=2683  mv=2162.1
+AIR   raw=2699  mv=2175.0
+AIR   raw=2679  mv=2158.9
+AIR   raw=2678  mv=2158.1
+AIR   raw=2696  mv=2172.6
+AIR   raw=2699  mv=2175.0
+AIR   raw=2693  mv=2170.2
+AIR   raw=2697  mv=2173.4
+AIR   raw=2711  mv=2184.7
+AIR   raw=2713  mv=2186.3
+AIR   raw=2709  mv=2183.1
+AIR   raw=2706  mv=2180.7
+AIR   raw=2699  mv=2175.0
+AIR   raw=2713  mv=2186.3
+AIR   raw=2713  mv=2186.3
+AIR   raw=2724  mv=2195.2
+AIR   raw=2735  mv=2204.0
+AIR   raw=2724  mv=2195.2
+AIR   raw=2729  mv=2199.2
+AIR   raw=2739  mv=2207.3
+AIR   raw=2744  mv=2211.3
+AIR   raw=2733  mv=2202.4
+AIR   raw=2743  mv=2210.5
+AIR   raw=2747  mv=2213.7
+AIR   raw=2747  mv=2213.7
+AIR   raw=2770  mv=2232.2
+AIR   raw=2805  mv=2260.4
+AIR   raw=2811  mv=2265.3
+AIR   raw=2831  mv=2281.4
+AIR   raw=2844  mv=2291.9
+AIR   raw=2762  mv=2225.8
+AIR   raw=2571  mv=2071.9
+AIR   raw=2583  mv=2081.5
+AIR   raw=2681  mv=2160.5
+AIR   raw=2864  mv=2308.0
+AIR   raw=2953  mv=2379.7
+AIR   raw=2913  mv=2347.5
+AIR   raw=2899  mv=2336.2
+AIR   raw=2870  mv=2312.8
+AIR   raw=2867  mv=2310.4
+AIR   raw=2853  mv=2299.1
+AIR   raw=2829  mv=2279.8
+AIR   raw=2746  mv=2212.9
+AIR   raw=2733  mv=2202.4
+AIR   raw=2735  mv=2204.0
+AIR   raw=2727  mv=2197.6
+AIR   raw=2645  mv=2131.5
+AIR   raw=2504  mv=2017.9
+AIR   raw=2332  mv=1879.3
+AIR   raw=2237  mv=1802.7
+AIR   raw=2172  mv=1750.3
+AIR   raw=2083  mv=1678.6
+AIR   raw=2095  mv=1688.3
+AIR   raw=2065  mv=1664.1
+AIR   raw=2068  mv=1666.5
+AIR   raw=2085  mv=1680.2
+AIR   raw=2089  mv=1683.4
+AIR   raw=2095  mv=1688.3
+AIR   raw=2084  mv=1679.4
+AIR   raw=2079  mv=1675.4
+AIR   raw=2099  mv=1691.5
+AIR   raw=2107  mv=1697.9
+AIR   raw=2109  mv=1699.6
+AIR   raw=2108  mv=1698.8
+AIR   raw=2105  mv=1696.3
+AIR   raw=2101  mv=1693.1
+AIR   raw=2117  mv=1706.0
+AIR   raw=2135  mv=1720.5
+AIR   raw=2169  mv=1747.9
+AIR   raw=2173  mv=1751.1
+AIR   raw=2173  mv=1751.1
+AIR   raw=2165  mv=1744.7
+AIR   raw=2183  mv=1759.2
+AIR   raw=2190  mv=1764.8
+AIR   raw=2185  mv=1760.8
+AIR   raw=2184  mv=1760.0
+AIR   raw=2151  mv=1733.4
+AIR   raw=2155  mv=1736.6
+AIR   raw=2181  mv=1757.6
+AIR   raw=2187  mv=1762.4
+AIR   raw=2203  mv=1775.3
+AIR   raw=2195  mv=1768.9
+AIR   raw=2191  mv=1765.6
+AIR   raw=2187  mv=1762.4
+AIR   raw=2194  mv=1768.1
+AIR   raw=2185  mv=1760.8
+AIR   raw=2188  mv=1763.2
+AIR   raw=2183  mv=1759.2
+AIR   raw=2188  mv=1763.2
+AIR   raw=2189  mv=1764.0
+AIR   raw=2171  mv=1749.5
+AIR   raw=2079  mv=1675.4
+AIR   raw=1933  mv=1557.7
+AIR   raw=1717  mv=1383.7
+AIR   raw=1573  mv=1267.6
+AIR   raw=1477  mv=1190.3
+AIR   raw=1481  mv=1193.5
+AIR   raw=1469  mv=1183.8
+AIR   raw=1498  mv=1207.2
+AIR   raw=1543  mv=1243.4
+AIR   raw=1547  mv=1246.7
+AIR   raw=1531  mv=1233.8
+AIR   raw=1529  mv=1232.2
+AIR   raw=1527  mv=1230.5
+AIR   raw=1533  mv=1235.4
+AIR   raw=1513  mv=1219.3
+AIR   raw=1485  mv=1196.7
+AIR   raw=1465  mv=1180.6
+AIR   raw=1482  mv=1194.3
+AIR   raw=1496  mv=1205.6
+AIR   raw=1469  mv=1183.8
+AIR   raw=1479  mv=1191.9
+AIR   raw=1481  mv=1193.5
+AIR   raw=1520  mv=1224.9
+AIR   raw=1502  mv=1210.4
+AIR   raw=1470  mv=1184.6
+AIR   raw=1408  mv=1134.7
+AIR   raw=1311  mv=1056.5
+AIR   raw= 803  mv= 647.1
+AIR   raw= 568  mv= 457.7
+AIR   raw= 551  mv= 444.0
+AIR   raw= 537  mv= 432.7
+AIR   raw= 529  mv= 426.3
+AIR   raw= 533  mv= 429.5
+AIR   raw= 532  mv= 428.7
+AIR   raw= 531  mv= 427.9
+AIR   raw= 533  mv= 429.5
+AIR   raw= 529  mv= 426.3
+AIR   raw= 529  mv= 426.3
+AIR   raw= 530  mv= 427.1
+AIR   raw= 533  mv= 429.5
+AIR   raw= 541  mv= 436.0
+AIR   raw= 553  mv= 445.6
+AIR   raw= 544  mv= 438.4
+AIR   raw= 559  mv= 450.5
+AIR   raw= 555  mv= 447.3
+AIR   raw= 544  mv= 438.4
+AIR   raw= 535  mv= 431.1
+AIR   raw= 530  mv= 427.1
+AIR   raw= 521  mv= 419.9
+AIR   raw= 505  mv= 407.0
+AIR   raw= 499  mv= 402.1
+AIR   raw= 483  mv= 389.2
+AIR   raw= 475  mv= 382.8
+AIR   raw= 483  mv= 389.2
+AIR   raw= 477  mv= 384.4
+AIR   raw= 485  mv= 390.8
+AIR   raw= 484  mv= 390.0
+AIR   raw= 522  mv= 420.7
+AIR   raw= 535  mv= 431.1
+AIR   raw= 531  mv= 427.9
+AIR   raw= 529  mv= 426.3
+AIR   raw= 529  mv= 426.3
+AIR   raw= 533  mv= 429.5
+AIR   raw= 533  mv= 429.5
+AIR   raw= 537  mv= 432.7
+AIR   raw= 535  mv= 431.1
+AIR   raw= 539  mv= 434.4
+AIR   raw= 559  mv= 450.5
+AIR   raw= 617  mv= 497.2
