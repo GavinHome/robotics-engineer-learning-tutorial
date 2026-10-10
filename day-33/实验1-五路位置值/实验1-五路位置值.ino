@@ -34,16 +34,18 @@
 //     就是为了躲开它：哪天把遥控（Day 27/28）和循线写进同一个固件也不用挪脚。）
 //
 // 位置值怎么算（Day 32 的结论直接决定了这一步）：
-//   ① 逐个标定白底。Day 32 已证实黑永远顶在 4095，所以黑侧五路一模一样、没有可标的东西；
-//      五路的差别全在白底（体制不同 + 高度不同）。标定只标白。
-//   ② 归一化 n_i = (raw_i − white_i) / (4095 − white_i)，取值 0~1。这样五路说话一样响。
+//   ① 逐路标定白底和黑底。Day 32 用黑胶带实测"黑永远顶在 4095"，所以当时只标白；
+//      但喷墨打印的黑吸红外远不如黑胶带，实测只到 3000 左右，顶不到天花板，
+//      这时黑侧五路也差出几百码 —— 于是黑也要逐路标。
+//   ② 归一化 n_i = (raw_i − white_i) / (black_i − white_i)，取值 0~1。这样五路说话一样响。
 //      直接拿 raw 减白底会偏向"黑白差更大"的那一路，质心被它拽过去。
 //   ③ 加权质心 pos = Σ(w_i × n_i) / Σ(n_i)，w = −2/−1/0/+1/+2，再 ×500 归一到 ±1000。
 //   Σ(n) 小于 SUM_MIN 就当没看见线，pos 保持上一帧的值。
 //
 // 串口命令（115200）：
-//   c = 标定白底（放白纸上、3cm 高度稳住再按，约 1 秒）
-//   w = 打印已存的白底表
+//   c = 标定白底（放 ① 白底区上、3cm 高度稳住再按，约 1 秒）
+//   b = 标定黑底（放 ② 全宽黑块上，同样稳住再按）
+//   w = 打印已存的白底/黑底表
 //   p = 切换"曲线模式"（只打 pos 和 sum，喂串口绘图器）
 // 彩灯：绿=等标定 / 居中，白=没看见线，红=偏左，蓝=偏右。
 
@@ -62,9 +64,10 @@ const int   CAL_SAMPLES  = 200;          // 标定时每路取多少个样本
 const int   CAL_GAP_MS   = 5;
 
 // ---------- 归一化 ----------
-// Day 32 实测：黑底三次都是 4095，顶在 3V3 轨上。所以黑侧不用标，
-// 每路的量程 span_i = BLACK_RAW − white_i 直接由它自己的白底推出来。
-const int BLACK_RAW = 4095;
+// Day 32 实测：黑胶带三次都顶在 4095（3V3 轨），所以当时黑侧不用标。
+// 但喷墨打印的黑吸红外远不如黑胶带，实测只到 3000 左右，且五路还差几百码。
+// 于是黑也逐路标；4095 只是"还没标过黑"时的默认值。
+// 每路量程 span_i = blackRaw_i − whiteRaw_i，由它自己黑白两个端点推出来。
 
 // 看不见线的门限，单位是"等效压线传感器个数"。五路全白时 Σn≈0，
 // 一路压线时大约 0.6~1.0。0.5 卡在两者中间。完整的丢线判定是 Day 34 的事。
@@ -72,6 +75,7 @@ const float SUM_MIN = 0.5f;
 
 // ---------- 状态 ----------
 int   whiteRaw[5] = { 1600, 1600, 1600, 1600, 1600 };  // 标定前用一个中性的假值
+int   blackRaw[5] = { 4095, 4095, 4095, 4095, 4095 };  // 没标过黑时按 Day 32 的天花板
 bool  calibrated  = false;
 
 int   raw[5];
@@ -90,20 +94,23 @@ void showState() {
   RgbCycle::setColor(0, 255, 0);                                     // 绿：居中
 }
 
-void printWhiteTable() {
+void printTables() {
   Serial.println();
-  Serial.println("  路   引脚   白底 raw   量程(4095-白底)");
-  Serial.println("-------------------------------------------");
+  Serial.println("  路   引脚   白底 raw   黑底 raw   量程(黑-白)");
+  Serial.println("------------------------------------------------");
   for (int i = 0; i < 5; i++) {
-    Serial.printf("  %d    GPIO%-3s  %5d      %5d\n",
-                  i, PIN_NAME[i], whiteRaw[i], BLACK_RAW - whiteRaw[i]);
+    Serial.printf("  %d    GPIO%-3s  %5d      %5d       %5d\n",
+                  i, PIN_NAME[i], whiteRaw[i], blackRaw[i],
+                  blackRaw[i] - whiteRaw[i]);
   }
-  Serial.println("-------------------------------------------");
+  Serial.println("------------------------------------------------");
   Serial.println();
 }
 
-void calibrate() {
-  Serial.println("[cal] 五路正在白底上取均值：保持 3cm 高度、别动、别挡光，约 1 秒");
+// black = false 标白底，true 标黑底。两边都是 200 个样本取均值，压住抖动。
+void calibrate(bool black) {
+  Serial.printf("[cal] 五路正在%s上取均值：保持 3cm 高度、别动、别挡光，约 1 秒\n",
+                black ? "黑底" : "白底");
   long acc[5] = { 0, 0, 0, 0, 0 };
   for (int k = 0; k < CAL_SAMPLES; k++) {
     for (int i = 0; i < 5; i++) acc[i] += analogRead(AO_PIN[i]);
@@ -111,19 +118,24 @@ void calibrate() {
   }
   Serial.println();
   for (int i = 0; i < 5; i++) {
-    whiteRaw[i] = (int)(acc[i] / CAL_SAMPLES);
-    Serial.printf("  %d 号 GPIO%-3s  white = %4d   span = %4d\n",
-                  i, PIN_NAME[i], whiteRaw[i], BLACK_RAW - whiteRaw[i]);
+    if (black) blackRaw[i] = (int)(acc[i] / CAL_SAMPLES);
+    else       whiteRaw[i] = (int)(acc[i] / CAL_SAMPLES);
+    Serial.printf("  %d 号 GPIO%-3s  %s = %4d\n",
+                  i, PIN_NAME[i], black ? "black" : "white",
+                  black ? blackRaw[i] : whiteRaw[i]);
   }
   calibrated = true;
-  Serial.println("[cal] 完成。现在可以拿画了黑线的纸横扫了");
   Serial.println();
-  printWhiteTable();
+  printTables();
+  if (black) Serial.println("[cal] 黑底完成。现在可以转纸走七个站位了");
+  else       Serial.println("[cal] 白底完成。滑到 ② 全宽黑块，按 b 标黑底");
+  Serial.println();
 }
 
 void handleCmd(char c) {
-  if (c == 'c') { calibrate(); return; }
-  if (c == 'w') { printWhiteTable(); return; }
+  if (c == 'c') { calibrate(false); return; }
+  if (c == 'b') { calibrate(true);  return; }
+  if (c == 'w') { printTables(); return; }
   if (c == 'p') {
     plotMode = !plotMode;
     Serial.printf("[plot] %s\n", plotMode ? "开：只打 pos 和 sum" : "关");
@@ -142,7 +154,7 @@ void setup() {
 
   Serial.println("TCRT5000 五路 ready. 全部 ADC1，VCC=3V3");
   Serial.println("脚位：#0=GPIO6  #1=GPIO7  #2=GPIO8  #3=GPIO2  #4=GPIO3");
-  Serial.println("命令：c=标定白底  w=白底表  p=曲线模式");
+  Serial.println("命令：c=标定白底  b=标定黑底  w=白底/黑底表  p=曲线模式");
   delay(200);
 }
 
@@ -165,8 +177,8 @@ void loop() {
   float wsum = 0.0f;
   sumN = 0.0f;
   for (int i = 0; i < 5; i++) {
-    int span = BLACK_RAW - whiteRaw[i];
-    if (span < 1) span = 1;                       // 白底顶到刻度时别除零
+    int span = blackRaw[i] - whiteRaw[i];
+    if (span < 1) span = 1;                       // 黑白标反了别除零
     n[i] = (float)(raw[i] - whiteRaw[i]) / (float)span;
     if (n[i] < 0.0f) n[i] = 0.0f;                 // 比白底还白的不算线
     sumN += n[i];
