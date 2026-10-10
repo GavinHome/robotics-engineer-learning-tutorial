@@ -10,7 +10,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
 | [`智能小车/`](./智能小车/) | Smart-car PCB and carrier-board design notes + photos of the built board ([`智能小车-正面.png`](./智能小车/智能小车-正面.png) ｜ [`智能小车-背面.png`](./智能小车/智能小车-背面.png)) |
-| [`day-01/`](./day-01/) … [`day-32/`](./day-32/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-33/`](./day-33/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -164,7 +164,8 @@ robotics-engineer-learning-tutorial/
 ├── day-30/                      ← Day 30: monthly review and month-2 prep (main thread + inventory + shopping list)
 ├── day-31/                      ← Day 31: interrupts — a reaction-timer game (polling vs interrupt, three-state machine)
 ├── day-32/                      ← Day 32: TCRT5000 — one module, three AO readings (black HIGH / white LOW + height sweep, mount at 3cm)
-├── day-33/ … day-60/            📌 to come (Day 33-38 line following / Day 39-45 attitude fusion / Day 46-51 encoder closed loop / Day 52-58 self-balancing / Day 59-60 review)
+├── day-33/                      ← Day 33: five AO channels fused into one "where is the line" number (weighted centroid pos + locating test sheet + seven-station calibration curve)
+├── day-34/ … day-60/            📌 to come (Day 34-38 line following / Day 39-45 attitude fusion / Day 46-51 encoder closed loop / Day 52-58 self-balancing / Day 59-60 review)
 └── 智能小车/                    ← smart-car PCB and carrier-board design notes + photos of the built board
 ```
 
@@ -4031,9 +4032,71 @@ Each centimetre closer costs white 560~970 counts, 5~6x the noise band, so the r
 
 **Calibration drifts.** Across the three runs, taken about three minutes apart, the white mean drifted monotonically down 1934 → 1755 → 1680 (254 counts, 2.5x the noise band) while the air reading bounced between 2373 and 2682. That is not device noise (the noise band is only about 100 counts), it is the environment — hand position, desk reflections and module temperature all move. So the Day 33 threshold **must not hard-code a raw value**: either recalibrate at every power-up, or switch to a relative criterion ("how far below the current settled white value").
 
+---
+
+## Day 33 — five AO channels fused into one "where is the line" number
+
+> Hardware: TCRT5000 x5 (all five that arrived yesterday)
+> Core: the weighted centroid that squeezes five readings into one `pos`, why per-channel normalisation is mandatory, and the domain of validity of "black always reads 4095"
+> Full log: [`day-33/README.md`](./day-33/README.md)
+
+Five modules in a row, 15mm between adjacent tube centres, five AO wires on GPIO6/7/8/2/3 — **all on ADC1**, because ADC2 shares its analog front end with the Wi-Fi RF block, so keeping everything on ADC1 means not one pin has to move when the remote control and the line follower end up in the same firmware. No car today: a test sheet is swept across the array on the workbench, answering one question — **how do five consecutive readings become a single "left or right, and by how much" number.**
+
+### pos is a weighted centroid, not a weighted average
+
+Each channel gets a weight w = −2/−1/0/+1/+2 (**#0 is leftmost**, and that is the sign convention for the whole week), then `pos = Σ(w·n)/Σ(n) × 500`, normalised to ±1000.
+
+Divide by `Σ(n)` rather than `Σ(w)`: when the line covers only one or two tubes instead of all five, the former gives the centre of mass of the tubes actually covered, while the latter produces a fake mid-scale value.
+
+### Normalisation is not optional
+
+`n_i = (raw_i − white_i) / (black_i − white_i)`, ranging 0~1. Yesterday's table showed each channel has its own white baseline (device variation, height variation), so each has its own black-white span too. Feed `raw − white` straight in as the weight and the channel with the bigger span talks louder in the centroid: a line sitting dead centre gets dragged off centre. Divide out each channel's own span and the five become equivalent.
+
+### "Black always reads 4095" has a domain of validity
+
+Yesterday's three measurements all pinned black at 4095, so only white was calibrated and the span was derived from it. Following that recipe today, the first check on the ② full-width black block gave **only about 2000 on inkjet-printed black**, with a few hundred counts of spread across the five channels. A pair of tweezers over the same tubes reached 4095, which proved the sensors and the height were fine — printer ink simply absorbs far less infrared than black tape.
+
+So a `b` command was added to calibrate black per channel as well. The criterion is simple: **does the material pin the reading at 4095?** If yes, calibrate white only, as yesterday. If not, calibrate both. Day 32's conclusion was not wrong — its premise (black tape) just did not hold today.
+
+### The locating test sheet: align on the board, not on the tube
+
+Of the three sheets the locating version is the most usable: the modules stay put and the paper rotates one full turn. **Each dashed frame is the outer edge of the five boards (75mm)** — put the left edge of the leftmost board on the frame's left "板沿" mark and the right edge of the rightmost board on the right one, and the five tubes land on the five ticks inside the frame by themselves. The tubes point down and cannot be seen, so aligning on them is hopeless; aligning on the board edges also verifies the spacing for free — if the boards will not fit the frame, the gaps are too big.
+
+Only three 75mm frames fit along one long edge (4 × 75 = 300 > 297), hence seven stations: top row −45/−30/−15, bottom row +15/+30/+45, the #9 station (0) on the right short edge, and ① white ② black side by side on the left short edge. The two ±250 half-step points are not printed; to measure them, shift the paper 7.5mm along the array.
+
+### The real bench problem was height, not code
+
+Levelling five modules took longer than writing the program. Day 32's height curve is steep (about 650 counts/cm), so 1cm of error is 650 counts:
+
+| round | five raw | max−min |
+|---|---|---|
+| untouched | 2296 1699 1275 1979 2228 | 1021 |
+| shim #0 down, #2 up | 2148 1647 1286 1910 1901 | 862 |
+| another pass | 1854 1291 1275 1689 1765 | 579 |
+| third pass | 1637 1543 1491 1365 1398 | 272 |
+| 6mm under #2, then `c` | 1672 1526 1497 1448 1425 | 247 |
+
+The criterion needs no ruler: all five raw values inside 1400~1550 with a few hundred counts between them is good enough, and what remains is device variation, which per-channel calibration absorbs. **Shim the low tube, do not raise the whole array** — moving everything just translates the readings without fixing the tilt. And levelling does not converge monotonically: the 6mm under #2 briefly knocked #3/#4 out, so after every shim the neighbours have to be rechecked.
+
+### Calibration curve: monotonic, accurate in the middle, compressed at the ends
+
+| offset | expected pos | measured pos |
+|---|---|---|
+| −45 mm | probably lost | lost |
+| −30 mm | ≈ −1000 | −910 |
+| −15 mm | ≈ −500 | −512 |
+| 0 | ≈ 0 | 0 |
+| +15 mm | ≈ +500 | +541 |
+| +30 mm | ≈ +1000 | +952 |
+| +45 mm | probably lost | lost |
+
+**Monotonic, no reversal** — the weight signs and the "#0 leftmost" convention are both correct. The middle three steps read 512 / 541, close to 500; the outer two only 398 / 411, a fifth low. An 8mm bar at the edge of the array leaks into the inner neighbour (at the −30 station the bar's edge sits 11mm from tube #1's centre), dragging the centroid toward the middle. At ±15 and 0 the leakage is symmetric left and right, so it produces no bias and those readings are accurate.
+
+Lost-line boundary: at ±30mm (bar centred on the outermost tube) the line is still read; at ±45mm (7.5mm beyond it) it is lost. That band is what Day 34 has to probe when setting its threshold.
+
 ### Next up
 
-- **Day 33**: five modules mounted side by side along the chassis front edge, black and white thresholds calibrated one by one, then fused into a `-1000 ~ +1000` line-position value. Today's 3cm is the common mounting height for all five, and the thresholds follow the rule above — recalibrate at every power-up, never hard-code
+- **Day 34**: the five DO pins come into play, a binary threshold per module, then the "all five white / all five black" lost-line condition. Today's `pos` curve and the width of the lost-line band are exactly the evidence it will set its thresholds from.
 
 ---
 
