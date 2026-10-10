@@ -1,0 +1,170 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 210 297">
+  <style>
+    @page { size: 210mm 297mm; margin: 0; }
+    text { font-family: -apple-system, "PingFang SC", "Heiti SC", "Noto Sans SC", "Microsoft YaHei", sans-serif; }
+    .ts  { font-size: 3.0px; fill: #222; }
+    .txs { font-size: 2.6px; fill: #555; }
+    .tb  { font-size: 3.6px; fill: #000; font-weight: 700; }
+    .tw  { font-size: 3.2px; fill: #fff; }
+    .twb { font-size: 4.0px; fill: #fff; font-weight: 700; }
+  </style>
+
+  <rect x="0" y="0" width="210" height="297" fill="#ffffff"/>
+
+  <!-- ==================== 标题 ==================== -->
+  <text class="tb" x="6" y="10">Day 33 五路循线测试纸（A4 = 210 x 297 mm，左右横移版）</text>
+  <text class="ts" x="6" y="15">TCRT5000 x 5，间距 15 mm，阵列宽 60 mm，2 号在中点。模块固定在桌上不动，纸左右推。打印：A4 / 缩放 100% / 边距"无" / 关"适应页面"。</text>
+
+  <!-- ==================== ① 白底标定区（无格子） ==================== -->
+  <rect x="6" y="18" width="198" height="34" fill="#ffffff" stroke="#000" stroke-width="0.3"/>
+  <text class="tb" x="10" y="25">① 白底标定区（这片故意没有格子）</text>
+  <text class="ts" x="10" y="30">把纸推到最左（或最右），让五路全压在这片白里，串口按 c，保持 3 cm 高度、别动，约 1 秒。</text>
+  <text class="ts" x="10" y="35">标完按 w 看白底表：五路 raw 一般落在 1400~2200，路与路差几百是正常的。</text>
+  <text class="ts" x="10" y="40">按 c 之前先确认五路下方是这张纸的白底，不是桌面、不是木板、不是格子线。</text>
+  <text class="ts" x="10" y="45">白底会漂（Day 32 实测 3 分钟漂约 250）。重新上电、换纸、改高度，都要重按 c。</text>
+  <text class="ts" x="10" y="50">激光打印的黑够黑；喷墨的黑发灰，② 区的 raw 可能到不了 4095，能用但不理想。</text>
+
+  <!-- ==================== ② 全宽黑块 ==================== -->
+  <rect x="6" y="54" width="198" height="24" fill="#000000"/>
+  <text class="twb" x="105" y="63.5" text-anchor="middle">② 全宽黑块（198 mm 宽，盖住整条阵列）</text>
+  <text class="tw"  x="105" y="69" text-anchor="middle">五路同时压黑：raw 五路应该全是 4095，n 五路全 1.00，sum 约 5.00</text>
+  <text class="tw"  x="105" y="74.5" text-anchor="middle">只要有一路不是 4095，就是那一路的硬件问题（焊点 / 高度 / 模块），先查它</text>
+
+  <!-- ==================== ③ 阵列位置示意 ==================== -->
+  <text class="tb" x="6" y="82.5">③ 阵列在哪（纸左右推，阵列不动）</text>
+  <path d="M 75 85 L 75 87.5 L 135 87.5 L 135 85" fill="none" stroke="#000" stroke-width="0.3"/>
+  <g stroke="#000" stroke-width="0.3">
+    <line x1="75"  y1="84"   x2="75"  y2="89.5"/>
+    <line x1="90"  y1="84.5" x2="90"  y2="87.5"/>
+    <line x1="105" y1="84"   x2="105" y2="89.5"/>
+    <line x1="120" y1="84.5" x2="120" y2="87.5"/>
+    <line x1="135" y1="84"   x2="135" y2="89.5"/>
+  </g>
+  <text class="txs" x="75"  y="93.5" text-anchor="middle">#0 最左</text>
+  <text class="txs" x="90"  y="93.5" text-anchor="middle">#1</text>
+  <text class="txs" x="105" y="93.5" text-anchor="middle">#2 中点</text>
+  <text class="txs" x="120" y="93.5" text-anchor="middle">#3</text>
+  <text class="txs" x="135" y="93.5" text-anchor="middle">#4 最右</text>
+  <text class="ts" x="140" y="82">阵列 = 一条横线，宽 60 mm</text>
+  <text class="ts" x="140" y="86">每格里只放一根黑条</text>
+  <text class="ts" x="140" y="90">左右推纸时它横扫这些格</text>
+
+  <!-- ==================== ④ 扫场格带（转置：站沿 x 排，偏移沿 y） ==================== -->
+  <text class="tb" x="6" y="97.5">④ 扫场格带</text>
+
+  <!-- 横向浅灰格子：15 mm 一根 -->
+  <g stroke="#d9d9d9" stroke-width="0.2">
+    <line x1="22" y1="105" x2="204" y2="105"/>
+    <line x1="22" y1="120" x2="204" y2="120"/>
+    <line x1="22" y1="135" x2="204" y2="135"/>
+    <line x1="22" y1="150" x2="204" y2="150"/>
+    <line x1="22" y1="165" x2="204" y2="165"/>
+    <line x1="22" y1="195" x2="204" y2="195"/>
+    <line x1="22" y1="210" x2="204" y2="210"/>
+    <line x1="22" y1="225" x2="204" y2="225"/>
+    <line x1="22" y1="240" x2="204" y2="240"/>
+    <line x1="22" y1="255" x2="204" y2="255"/>
+  </g>
+  <line x1="22" y1="180" x2="204" y2="180" stroke="#9a9a9a" stroke-width="0.35"/>
+
+  <!-- 竖排刻度（15 mm 一格，0 在纸中线） -->
+  <g class="txs">
+    <text x="8" y="106">-5</text>
+    <text x="8" y="121">-4</text>
+    <text x="8" y="136">-3</text>
+    <text x="8" y="151">-2</text>
+    <text x="8" y="166">-1</text>
+    <text x="8" y="181">0</text>
+    <text x="8" y="196">+1</text>
+    <text x="8" y="211">+2</text>
+    <text x="8" y="226">+3</text>
+    <text x="8" y="241">+4</text>
+    <text x="8" y="256">+5</text>
+  </g>
+
+  <!-- 格带分隔线（9 格，每格 20 mm） -->
+  <g stroke="#000000" stroke-width="0.15">
+    <line x1="22"  y1="100" x2="22"  y2="260"/>
+    <line x1="42"  y1="100" x2="42"  y2="260"/>
+    <line x1="62"  y1="100" x2="62"  y2="260"/>
+    <line x1="82"  y1="100" x2="82"  y2="260"/>
+    <line x1="102" y1="100" x2="102" y2="260"/>
+    <line x1="122" y1="100" x2="122" y2="260"/>
+    <line x1="142" y1="100" x2="142" y2="260"/>
+    <line x1="162" y1="100" x2="162" y2="260"/>
+    <line x1="182" y1="100" x2="182" y2="260"/>
+    <line x1="202" y1="100" x2="202" y2="260"/>
+  </g>
+
+  <!-- 纸移动方向 -->
+  <g stroke="#000" stroke-width="0.35" fill="none">
+    <line x1="26" y1="252" x2="198" y2="252"/>
+    <path d="M 26 252 L 30 250.2 L 30 253.8 Z" fill="#000" stroke="none"/>
+    <path d="M 198 252 L 194 250.2 L 194 253.8 Z" fill="#000" stroke="none"/>
+  </g>
+  <text class="txs" x="112" y="249" text-anchor="middle">纸左右移动</text>
+
+  <!-- 九格带：一根黑条 + 上下标注 -->
+  <rect x="25.5" y="131"   width="13" height="8" fill="#000000"/>
+  <text class="ts" x="32"  y="120" text-anchor="middle">-45 mm</text>
+  <text class="ts" x="32"  y="124" text-anchor="middle">(-3 格)</text>
+  <text class="ts" x="32"  y="147" text-anchor="middle">超出阵列</text>
+  <text class="ts" x="32"  y="151" text-anchor="middle">可能丢线</text>
+
+  <rect x="45.5" y="146"   width="13" height="8" fill="#000000"/>
+  <text class="ts" x="52"  y="135" text-anchor="middle">-30 mm</text>
+  <text class="ts" x="52"  y="139" text-anchor="middle">(-2 格)</text>
+  <text class="ts" x="52"  y="162" text-anchor="middle">&#8776; -1000</text>
+  <text class="ts" x="52"  y="166" text-anchor="middle">红灯</text>
+
+  <rect x="65.5" y="161"   width="13" height="8" fill="#000000"/>
+  <text class="ts" x="72"  y="150" text-anchor="middle">-15 mm</text>
+  <text class="ts" x="72"  y="154" text-anchor="middle">(-1 格)</text>
+  <text class="ts" x="72"  y="177" text-anchor="middle">&#8776; -500</text>
+  <text class="ts" x="72"  y="181" text-anchor="middle">红灯</text>
+
+  <rect x="85.5" y="168.5" width="13" height="8" fill="#000000"/>
+  <text class="ts" x="92"  y="157.5" text-anchor="middle">-7.5 mm</text>
+  <text class="ts" x="92"  y="161.5" text-anchor="middle">(-半格)</text>
+  <text class="ts" x="92"  y="184.5" text-anchor="middle">&#8776; -250</text>
+  <text class="ts" x="92"  y="188.5" text-anchor="middle">红灯</text>
+
+  <rect x="105.5" y="176"  width="13" height="8" fill="#000000"/>
+  <text class="tb" x="112" y="165" text-anchor="middle">0</text>
+  <text class="tb" x="112" y="169" text-anchor="middle">(正中)</text>
+  <text class="ts" x="112" y="192" text-anchor="middle">&#8776; 0</text>
+  <text class="ts" x="112" y="196" text-anchor="middle">绿灯</text>
+
+  <rect x="125.5" y="183.5" width="13" height="8" fill="#000000"/>
+  <text class="ts" x="132" y="172.5" text-anchor="middle">+7.5 mm</text>
+  <text class="ts" x="132" y="176.5" text-anchor="middle">(+半格)</text>
+  <text class="ts" x="132" y="199.5" text-anchor="middle">&#8776; +250</text>
+  <text class="ts" x="132" y="203.5" text-anchor="middle">蓝灯</text>
+
+  <rect x="145.5" y="191"  width="13" height="8" fill="#000000"/>
+  <text class="ts" x="152" y="180" text-anchor="middle">+15 mm</text>
+  <text class="ts" x="152" y="184" text-anchor="middle">(+1 格)</text>
+  <text class="ts" x="152" y="207" text-anchor="middle">&#8776; +500</text>
+  <text class="ts" x="152" y="211" text-anchor="middle">蓝灯</text>
+
+  <rect x="165.5" y="206"  width="13" height="8" fill="#000000"/>
+  <text class="ts" x="172" y="195" text-anchor="middle">+30 mm</text>
+  <text class="ts" x="172" y="199" text-anchor="middle">(+2 格)</text>
+  <text class="ts" x="172" y="222" text-anchor="middle">&#8776; +1000</text>
+  <text class="ts" x="172" y="226" text-anchor="middle">蓝灯</text>
+
+  <rect x="185.5" y="221"  width="13" height="8" fill="#000000"/>
+  <text class="ts" x="192" y="210" text-anchor="middle">+45 mm</text>
+  <text class="ts" x="192" y="214" text-anchor="middle">(+3 格)</text>
+  <text class="ts" x="192" y="237" text-anchor="middle">超出阵列</text>
+  <text class="ts" x="192" y="241" text-anchor="middle">可能丢线</text>
+
+  <!-- ==================== 底部：怎么用 ==================== -->
+  <line x1="6" y1="262" x2="204" y2="262" stroke="#000" stroke-width="0.3"/>
+  <text class="tb" x="6" y="267.5">怎么用</text>
+  <text class="ts" x="6" y="272.5">1. 先左右挪纸，让"0（正中）"那格读出 pos 约 0 且绿灯亮 —— 这时 2 号对上了纸的中线。</text>
+  <text class="ts" x="6" y="277">2. 串口按 p 开曲线模式，再左右推纸：每进一格停 1 秒，记下 pos。格与格之间会闪白灯（丢线），正常。</text>
+  <text class="ts" x="6" y="281.5">3. 拿记下的 9 个数对上面的标注：一格 = 500，左右对称、中间均匀就算过。不对称就是五路高度不一致或某路接线松。</text>
+  <text class="ts" x="6" y="286">4. 彩灯：绿 = 居中 / 白 = 丢线 / 红 = 偏左 / 蓝 = 偏右。浅灰格子传感器基本看不见，标定只在 ① 那片无格白区做。</text>
+
+</svg>
