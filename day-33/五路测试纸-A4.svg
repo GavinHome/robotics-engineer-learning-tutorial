@@ -1,0 +1,155 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 210 297">
+  <style>
+    @page { size: 210mm 297mm; margin: 0; }
+    text { font-family: -apple-system, "PingFang SC", "Heiti SC", "Noto Sans SC", "Microsoft YaHei", sans-serif; }
+    .ts  { font-size: 3.0px; fill: #222; }
+    .txs { font-size: 2.6px; fill: #555; }
+    .tb  { font-size: 3.6px; fill: #000; font-weight: 700; }
+    .tw  { font-size: 3.2px; fill: #fff; }
+    .twb { font-size: 4.0px; fill: #fff; font-weight: 700; }
+  </style>
+
+  <rect x="0" y="0" width="210" height="297" fill="#ffffff"/>
+
+  <!-- ==================== 标题 ==================== -->
+  <text class="tb" x="6" y="10">Day 33 五路循线测试纸（A4 = 210 x 297 mm）</text>
+  <text class="ts" x="6" y="15">TCRT5000 x 5，间距 15 mm，阵列宽 60 mm，2 号在中点。打印：A4 / 缩放 100% / 边距"无" / 关掉"适应页面"。</text>
+
+  <!-- ==================== ① 白底标定区（无格子） ==================== -->
+  <rect x="6" y="18" width="198" height="34" fill="#ffffff" stroke="#000" stroke-width="0.3"/>
+  <text class="tb" x="10" y="25">① 白底标定区（这片故意没有格子）</text>
+  <text class="ts" x="10" y="30">把纸推到最上面，五路全压在这片白里，串口按 c，保持 3 cm 高度、别动，约 1 秒。</text>
+  <text class="ts" x="10" y="35">标完按 w 看白底表：五路 raw 一般落在 1400~2200，路与路差几百是正常的。</text>
+  <text class="ts" x="10" y="40">按 c 之前先确认五路下方是这张纸的白底，不是桌面、不是木板、不是格子线。</text>
+  <text class="ts" x="10" y="45">白底会漂（Day 32 实测 3 分钟漂约 250）。重新上电、换纸、改高度，都要重按 c。</text>
+  <text class="ts" x="10" y="50">激光打印的黑够黑；喷墨的黑发灰，② 区的 raw 可能到不了 4095，能用但不理想。</text>
+
+  <!-- ==================== ② 全宽黑块 ==================== -->
+  <rect x="6" y="54" width="198" height="24" fill="#000000"/>
+  <text class="twb" x="105" y="63.5" text-anchor="middle">② 全宽黑块（198 mm 宽，盖住整条阵列）</text>
+  <text class="tw"  x="105" y="69" text-anchor="middle">五路同时压黑：raw 五路应该全是 4095，n 五路全 1.00，sum 约 5.00</text>
+  <text class="tw"  x="105" y="74.5" text-anchor="middle">只要有一路不是 4095，就是那一路的硬件问题（焊点 / 高度 / 模块），先查它</text>
+
+  <!-- ==================== ③ 阵列位置示意 ==================== -->
+  <text class="tb" x="6" y="82.5">③ 五路阵列在哪（纸上下移动，阵列在上方不动）</text>
+  <path d="M 75 85 L 75 87.5 L 135 87.5 L 135 85" fill="none" stroke="#000" stroke-width="0.3"/>
+  <g stroke="#000" stroke-width="0.3">
+    <line x1="75"  y1="84"   x2="75"  y2="89.5"/>
+    <line x1="90"  y1="84.5" x2="90"  y2="87.5"/>
+    <line x1="105" y1="84"   x2="105" y2="89.5"/>
+    <line x1="120" y1="84.5" x2="120" y2="87.5"/>
+    <line x1="135" y1="84"   x2="135" y2="89.5"/>
+  </g>
+  <text class="txs" x="75"  y="93.5" text-anchor="middle">#0 最左</text>
+  <text class="txs" x="90"  y="93.5" text-anchor="middle">#1</text>
+  <text class="txs" x="105" y="93.5" text-anchor="middle">#2 中点</text>
+  <text class="txs" x="120" y="93.5" text-anchor="middle">#3</text>
+  <text class="txs" x="135" y="93.5" text-anchor="middle">#4 最右</text>
+  <text class="ts" x="140" y="82">阵列 = 一条横线，宽 60 mm</text>
+  <text class="ts" x="140" y="86">每格带里只放一根黑条</text>
+  <text class="ts" x="140" y="90">推纸时它横扫这些带</text>
+
+  <!-- ==================== ④ 扫场格带 ==================== -->
+  <!-- 竖向浅灰格子：15 mm 一根 -->
+  <g stroke="#d9d9d9" stroke-width="0.2">
+    <line x1="15"  y1="98" x2="15"  y2="260"/>
+    <line x1="30"  y1="98" x2="30"  y2="260"/>
+    <line x1="45"  y1="98" x2="45"  y2="260"/>
+    <line x1="60"  y1="98" x2="60"  y2="260"/>
+    <line x1="75"  y1="98" x2="75"  y2="260"/>
+    <line x1="90"  y1="98" x2="90"  y2="260"/>
+    <line x1="105" y1="98" x2="105" y2="260"/>
+    <line x1="120" y1="98" x2="120" y2="260"/>
+    <line x1="135" y1="98" x2="135" y2="260"/>
+    <line x1="150" y1="98" x2="150" y2="260"/>
+    <line x1="165" y1="98" x2="165" y2="260"/>
+    <line x1="180" y1="98" x2="180" y2="260"/>
+    <line x1="195" y1="98" x2="195" y2="260"/>
+  </g>
+  <line x1="105" y1="98" x2="105" y2="260" stroke="#9a9a9a" stroke-width="0.35"/>
+
+  <!-- 格带分隔线 -->
+  <g stroke="#000000" stroke-width="0.15">
+    <line x1="6" y1="98"  x2="204" y2="98"/>
+    <line x1="6" y1="116" x2="204" y2="116"/>
+    <line x1="6" y1="134" x2="204" y2="134"/>
+    <line x1="6" y1="152" x2="204" y2="152"/>
+    <line x1="6" y1="170" x2="204" y2="170"/>
+    <line x1="6" y1="188" x2="204" y2="188"/>
+    <line x1="6" y1="206" x2="204" y2="206"/>
+    <line x1="6" y1="224" x2="204" y2="224"/>
+    <line x1="6" y1="242" x2="204" y2="242"/>
+    <line x1="6" y1="260" x2="204" y2="260"/>
+  </g>
+
+  <!-- 横向刻度（15 mm 一格，0 在纸中线） -->
+  <g class="txs" text-anchor="middle">
+    <text x="15"  y="97.5">-6</text>
+    <text x="30"  y="97.5">-5</text>
+    <text x="45"  y="97.5">-4</text>
+    <text x="60"  y="97.5">-3</text>
+    <text x="75"  y="97.5">-2</text>
+    <text x="90"  y="97.5">-1</text>
+    <text x="105" y="97.5">0</text>
+    <text x="120" y="97.5">+1</text>
+    <text x="135" y="97.5">+2</text>
+    <text x="150" y="97.5">+3</text>
+    <text x="165" y="97.5">+4</text>
+    <text x="180" y="97.5">+5</text>
+    <text x="195" y="97.5">+6</text>
+  </g>
+
+  <!-- 纸移动方向 -->
+  <g stroke="#000" stroke-width="0.35" fill="none">
+    <line x1="10" y1="103" x2="10" y2="255"/>
+    <path d="M 10 100 L 7.8 104 L 12.2 104 Z" fill="#000" stroke="none"/>
+    <path d="M 10 258 L 7.8 254 L 12.2 254 Z" fill="#000" stroke="none"/>
+  </g>
+  <text class="txs" x="12.6" y="179" transform="rotate(-90 12.6 179)">纸上下移动</text>
+
+  <!-- 九格带：一根黑条 + 左右标注 -->
+  <rect x="56"    y="100.5" width="8" height="13" fill="#000000"/>
+  <text class="ts" x="54"    y="108" text-anchor="end">-45 mm（-3 格）</text>
+  <text class="ts" x="66"    y="108">超出阵列，可能丢线</text>
+
+  <rect x="71"    y="118.5" width="8" height="13" fill="#000000"/>
+  <text class="ts" x="69"    y="126" text-anchor="end">-30 mm（-2 格）</text>
+  <text class="ts" x="81"    y="126">pos 约 -1000，红灯</text>
+
+  <rect x="86"    y="136.5" width="8" height="13" fill="#000000"/>
+  <text class="ts" x="84"    y="144" text-anchor="end">-15 mm（-1 格）</text>
+  <text class="ts" x="96"    y="144">pos 约 -500，红灯</text>
+
+  <rect x="93.5"  y="154.5" width="8" height="13" fill="#000000"/>
+  <text class="ts" x="91.5"  y="162" text-anchor="end">-7.5 mm（-半格）</text>
+  <text class="ts" x="103.5" y="162">pos 约 -250，红灯</text>
+
+  <rect x="101"   y="172.5" width="8" height="13" fill="#000000"/>
+  <text class="tb" x="99"    y="180" text-anchor="end">0（正中）</text>
+  <text class="tb" x="111"   y="180">pos 约 0，绿灯</text>
+
+  <rect x="107.5" y="190.5" width="8" height="13" fill="#000000"/>
+  <text class="ts" x="105.5" y="198" text-anchor="end">+7.5 mm（+半格）</text>
+  <text class="ts" x="117.5" y="198">pos 约 +250，蓝灯</text>
+
+  <rect x="116"   y="208.5" width="8" height="13" fill="#000000"/>
+  <text class="ts" x="114"   y="216" text-anchor="end">+15 mm（+1 格）</text>
+  <text class="ts" x="126"   y="216">pos 约 +500，蓝灯</text>
+
+  <rect x="131"   y="226.5" width="8" height="13" fill="#000000"/>
+  <text class="ts" x="129"   y="234" text-anchor="end">+30 mm（+2 格）</text>
+  <text class="ts" x="141"   y="234">pos 约 +1000，蓝灯</text>
+
+  <rect x="146"   y="244.5" width="8" height="13" fill="#000000"/>
+  <text class="ts" x="144"   y="252" text-anchor="end">+45 mm（+3 格）</text>
+  <text class="ts" x="156"   y="252">超出阵列，可能丢线</text>
+
+  <!-- ==================== 底部：怎么用 ==================== -->
+  <line x1="6" y1="262" x2="204" y2="262" stroke="#000" stroke-width="0.3"/>
+  <text class="tb" x="6" y="267.5">怎么用</text>
+  <text class="ts" x="6" y="272.5">1. 先左右挪纸，让"0（正中）"那格读出 pos 约 0 且绿灯亮 —— 这时 2 号对上了纸的中线，之后别再动左右。</text>
+  <text class="ts" x="6" y="277">2. 串口按 p 开曲线模式，再上下推纸：每进一格停 1 秒，记下 pos。格与格之间会闪白灯（丢线），正常。</text>
+  <text class="ts" x="6" y="281.5">3. 拿记下的 9 个数对上面的标注：一格 = 500，左右对称、中间均匀就算过。不对称就是五路高度不一致或某路接线松。</text>
+  <text class="ts" x="6" y="286">4. 彩灯：绿 = 居中 / 白 = 丢线 / 红 = 偏左 / 蓝 = 偏右。浅灰格子传感器基本看不见，标定只在 ① 那片无格白区做。</text>
+
+</svg>
