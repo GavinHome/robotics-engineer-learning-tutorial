@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="297mm" height="210mm" viewBox="0 0 297 210">
+  <style>
+    @page { size: 297mm 210mm; margin: 0; }
+    text { font-family: -apple-system, "PingFang SC", "Heiti SC", "Noto Sans SC", "Microsoft YaHei", sans-serif; }
+    .ts  { font-size: 3.0px; fill: #222; }
+    .txs { font-size: 2.6px; fill: #555; }
+    .tb  { font-size: 3.6px; fill: #000; font-weight: 700; }
+    .gd  { font-size: 2.4px; fill: #999; }
+    .ge  { font-size: 2.1px; fill: #777; }
+  </style>
+  <rect x="0" y="0" width="297" height="210" fill="#ffffff"/>
+  <!-- 上排 3 站：偏左，黑条越往左越出视野 -->
+  <rect x="27" y="13" width="75" height="14" fill="none" stroke="#000" stroke-width="0.3" stroke-dasharray="1.5 1"/>
+  <line x1="34.5" y1="12" x2="34.5" y2="28" stroke="#000" stroke-width="0.3"/>
+  <line x1="49.5" y1="12" x2="49.5" y2="28" stroke="#000" stroke-width="0.3"/>
+  <line x1="64.5" y1="12" x2="64.5" y2="28" stroke="#000" stroke-width="0.7"/>
+  <line x1="79.5" y1="12" x2="79.5" y2="28" stroke="#000" stroke-width="0.3"/>
+  <line x1="94.5" y1="12" x2="94.5" y2="28" stroke="#000" stroke-width="0.3"/>
+  <rect x="15.5" y="13" width="8" height="14" fill="#000000"/>
+  <text class="ge" x="27"     y="11.8" text-anchor="start">板沿</text>
+  <text class="ge" x="102" y="11.8" text-anchor="end">板沿</text>
+  <text class="tb"  x="64.5" y="35"  text-anchor="middle">−45 mm</text>
+  <text class="txs" x="64.5" y="39" text-anchor="middle">丢线 · 白灯</text>
+  <rect x="111" y="13" width="75" height="14" fill="none" stroke="#000" stroke-width="0.3" stroke-dasharray="1.5 1"/>
+  <line x1="118.5" y1="12" x2="118.5" y2="28" stroke="#000" stroke-width="0.3"/>
+  <line x1="133.5" y1="12" x2="133.5" y2="28" stroke="#000" stroke-width="0.3"/>
+  <line x1="148.5" y1="12" x2="148.5" y2="28" stroke="#000" stroke-width="0.7"/>
+  <line x1="163.5" y1="12" x2="163.5" y2="28" stroke="#000" stroke-width="0.3"/>
+  <line x1="178.5" y1="12" x2="178.5" y2="28" stroke="#000" stroke-width="0.3"/>
+  <rect x="114.5" y="13" width="8" height="14" fill="#000000"/>
+  <text class="ge" x="111"     y="11.8" text-anchor="start">板沿</text>
+  <text class="ge" x="186" y="11.8" text-anchor="end">板沿</text>
+  <text class="tb"  x="148.5" y="35"  text-anchor="middle">−30 mm</text>
+  <text class="txs" x="148.5" y="39" text-anchor="middle">pos −1000 红灯</text>
+  <rect x="195" y="13" width="75" height="14" fill="none" stroke="#000" stroke-width="0.3" stroke-dasharray="1.5 1"/>
+  <line x1="202.5" y1="12" x2="202.5" y2="28" stroke="#000" stroke-width="0.3"/>
+  <line x1="217.5" y1="12" x2="217.5" y2="28" stroke="#000" stroke-width="0.3"/>
+  <line x1="232.5" y1="12" x2="232.5" y2="28" stroke="#000" stroke-width="0.7"/>
+  <line x1="247.5" y1="12" x2="247.5" y2="28" stroke="#000" stroke-width="0.3"/>
+  <line x1="262.5" y1="12" x2="262.5" y2="28" stroke="#000" stroke-width="0.3"/>
+  <rect x="213.5" y="13" width="8" height="14" fill="#000000"/>
+  <text class="ge" x="195"     y="11.8" text-anchor="start">板沿</text>
+  <text class="ge" x="270" y="11.8" text-anchor="end">板沿</text>
+  <text class="tb"  x="232.5" y="35"  text-anchor="middle">−15 mm</text>
+  <text class="txs" x="232.5" y="39" text-anchor="middle">pos −500 红灯</text>
+  <!-- 下排 3 站：偏右 -->
+  <rect x="27" y="180" width="75" height="14" fill="none" stroke="#000" stroke-width="0.3" stroke-dasharray="1.5 1"/>
+  <line x1="34.5" y1="179" x2="34.5" y2="195" stroke="#000" stroke-width="0.3"/>
+  <line x1="49.5" y1="179" x2="49.5" y2="195" stroke="#000" stroke-width="0.3"/>
+  <line x1="64.5" y1="179" x2="64.5" y2="195" stroke="#000" stroke-width="0.7"/>
+  <line x1="79.5" y1="179" x2="79.5" y2="195" stroke="#000" stroke-width="0.3"/>
+  <line x1="94.5" y1="179" x2="94.5" y2="195" stroke="#000" stroke-width="0.3"/>
+  <rect x="75.5" y="180" width="8" height="14" fill="#000000"/>
+  <text class="ge" x="27"     y="178.8" text-anchor="start">板沿</text>
+  <text class="ge" x="102" y="178.8" text-anchor="end">板沿</text>
+  <text class="tb"  x="64.5" y="202"  text-anchor="middle">+15 mm</text>
+  <text class="txs" x="64.5" y="206" text-anchor="middle">pos +500 蓝灯</text>
+  <rect x="111" y="180" width="75" height="14" fill="none" stroke="#000" stroke-width="0.3" stroke-dasharray="1.5 1"/>
+  <line x1="118.5" y1="179" x2="118.5" y2="195" stroke="#000" stroke-width="0.3"/>
+  <line x1="133.5" y1="179" x2="133.5" y2="195" stroke="#000" stroke-width="0.3"/>
+  <line x1="148.5" y1="179" x2="148.5" y2="195" stroke="#000" stroke-width="0.7"/>
+  <line x1="163.5" y1="179" x2="163.5" y2="195" stroke="#000" stroke-width="0.3"/>
+  <line x1="178.5" y1="179" x2="178.5" y2="195" stroke="#000" stroke-width="0.3"/>
+  <rect x="174.5" y="180" width="8" height="14" fill="#000000"/>
+  <text class="ge" x="111"     y="178.8" text-anchor="start">板沿</text>
+  <text class="ge" x="186" y="178.8" text-anchor="end">板沿</text>
+  <text class="tb"  x="148.5" y="202"  text-anchor="middle">+30 mm</text>
+  <text class="txs" x="148.5" y="206" text-anchor="middle">pos +1000 蓝灯</text>
+  <rect x="195" y="180" width="75" height="14" fill="none" stroke="#000" stroke-width="0.3" stroke-dasharray="1.5 1"/>
+  <line x1="202.5" y1="179" x2="202.5" y2="195" stroke="#000" stroke-width="0.3"/>
+  <line x1="217.5" y1="179" x2="217.5" y2="195" stroke="#000" stroke-width="0.3"/>
+  <line x1="232.5" y1="179" x2="232.5" y2="195" stroke="#000" stroke-width="0.7"/>
+  <line x1="247.5" y1="179" x2="247.5" y2="195" stroke="#000" stroke-width="0.3"/>
+  <line x1="262.5" y1="179" x2="262.5" y2="195" stroke="#000" stroke-width="0.3"/>
+  <rect x="273.5" y="180" width="8" height="14" fill="#000000"/>
+  <text class="ge" x="195"     y="178.8" text-anchor="start">板沿</text>
+  <text class="ge" x="270" y="178.8" text-anchor="end">板沿</text>
+  <text class="tb"  x="232.5" y="202"  text-anchor="middle">+45 mm</text>
+  <text class="txs" x="232.5" y="206" text-anchor="middle">丢线 · 白灯</text>
+  <!-- 第 9 站（右短边，整站旋转 90°，离右边缘 7 mm） -->
+  <rect x="276" y="67" width="14" height="75" fill="none" stroke="#000" stroke-width="0.3" stroke-dasharray="1.5 1"/>
+  <line x1="275" y1="74.5" x2="291" y2="74.5" stroke="#000" stroke-width="0.3"/>
+  <line x1="275" y1="89.5" x2="291" y2="89.5" stroke="#000" stroke-width="0.3"/>
+  <line x1="275" y1="104.5" x2="291" y2="104.5" stroke="#000" stroke-width="0.7"/>
+  <line x1="275" y1="119.5" x2="291" y2="119.5" stroke="#000" stroke-width="0.3"/>
+  <line x1="275" y1="134.5" x2="291" y2="134.5" stroke="#000" stroke-width="0.3"/>
+  <rect x="276" y="100.5" width="14" height="8" fill="#000000"/>
+  <text class="ge" x="274.5" y="68.5"   text-anchor="end">板沿</text>
+  <text class="ge" x="274.5" y="142"     text-anchor="end">板沿</text>
+  <text class="tb"  x="296" y="63"  text-anchor="end">第 9 站（0 正中）</text>
+  <text class="txs" x="296" y="148" text-anchor="end">pos 0 · 绿灯</text>
+  <text class="gd"  x="296" y="153" text-anchor="end">刻度从上到下 = #0 → #4</text>
+  <text class="gd"  x="274" y="68.5" text-anchor="end">#0</text>
+  <text class="gd"  x="274" y="142"   text-anchor="end">#4</text>
+  <!-- 左短边：① 白底标定区 ② 全宽黑块，并排的竖条，沿阵列方向都是 75mm -->
+  <text class="tb" x="5" y="63">① 白底标定区</text>
+  <rect x="5" y="67" width="24" height="75" fill="#ffffff" stroke="#000" stroke-width="0.3" stroke-dasharray="1.5 1"/>
+  <text class="tb" x="35" y="63">② 全宽黑块</text>
+  <rect x="35" y="67" width="24" height="75" fill="#000000"/>
+  <text class="ge" x="5" y="65.8">板沿</text>
+  <text class="ge" x="35" y="65.8">板沿</text>
+  <text class="ge" x="5" y="144.6">板沿</text>
+  <text class="ge" x="35" y="144.6">板沿</text>
+  <text class="gd" x="5" y="149">顺短边的 75mm 竖条：转纸 90° 变横条，正对整排五颗。</text>
+  <text class="gd" x="5" y="152.5">① 贴纸边；② 往里 30mm，只按一次，没关系。</text>
+  <!-- 走位顺序与打印说明 -->
+  <text class="tb" x="76" y="46.0">Day 33 五路循线测试纸（A4 横放 297 × 210 mm · 定位版：模块不动，转纸走一圈）</text>
+  <text class="ts" x="76" y="50.5">对齐：每条虚线框就是五块板子的外沿（75mm）。把板边贴到框两端，五颗管子自己落在框里那 5 条刻度上——灯朝下，不用去找它。</text>
+  <text class="ts" x="76" y="55.0">打印：A4 / 缩放 100% / 边距"无" / 关掉"适应页面"。一缩放，15mm 的间距就不是 15mm 了，整张表的答案全作废。</text>
+  <text class="ts" x="76" y="59.5">走位顺序：上排 3 站（左到右）→ 顺时针 90° → ① 白底 → ② 黑块 → 顺时针 90° → 下排 3 站（左到右）→ 顺时针 90° → 第 9 站。</text>
+  <text class="ts" x="76" y="64.0">纸一直朝同一个方向转，每步 90°，四步正好一圈回到上排；阵列离纸面始终 3cm，转纸时别碰模块。</text>
+  <!-- 中间说明列 -->
+  <text class="txs" x="76" y="76.0">七个站位沿纸边走一圈：两条长边各 3 站，右短边第 9 站，左短边并排放 ① ②。</text>
+  <text class="txs" x="76" y="80.4">虚线框 = 五块板子的外沿，75mm。板边贴框边，管子就落在框里那 5 条刻度上。</text>
+  <text class="txs" x="76" y="84.8">框里刻度从左到右 = #0 #1 #2 #3 #4，#2 是中点（粗那条），相邻两条差 15mm。</text>
+  <text class="txs" x="76" y="89.2">管心距量成 15.25mm 没关系：末端只差半毫米，答案照样对。框要是塞不进板子，就是缝留大了。</text>
+  <text class="txs" x="76" y="93.6">上排 3 站偏左（−45 → −15），下排 3 站偏右（+15 → +45），第 9 站 0 正中。</text>
+  <text class="txs" x="76" y="98.0">一条长边只放得下 3 个 75mm 的框：挨太近，黑条会伸进隔壁的阵列框。</text>
+  <text class="txs" x="76" y="102.4">±45 两站偏移超过阵列半宽，黑条整根跑出框外，它就是丢线判定的尺度。</text>
+  <text class="txs" x="76" y="106.80000000000001">读数：一格 = 500。上排负、下排正、0 站 ≈ 0，左右对称为过。</text>
+  <text class="txs" x="76" y="111.2">不对称 = 五路高度不一致，或某路接线松。中间出平台 = 某两颗间距不同。</text>
+  <text class="txs" x="76" y="115.6">黑条同时压住两颗以上时，pos 会停在半个台阶上，那是间距不准。</text>
+  <text class="txs" x="76" y="120.0">七站答案全印在各自框旁，不用对表。</text>
+  <text class="txs" x="76" y="124.4">彩灯：绿 = 居中 / 白 = 丢线 / 红 = 偏左 / 蓝 = 偏右。</text>
+  <text class="txs" x="76" y="128.8">±250 两个半格点纸上没印：要测就把纸沿阵列方向平移 7.5mm（半个间距）。</text>
+  <text class="txs" x="76" y="133.2">第 9 站贴在右短边（离边 7mm）：转纸 90° 就是一行横站，刻度从上到下 = #0 → #4。</text>
+  <text class="txs" x="76" y="137.60000000000002">① ② 是顺短边的 75mm 竖条：转纸 90°，竖条变横条正对整排五颗，模块一步不用动。</text>
+  <text class="txs" x="76" y="142.0">按 c 之前先确认五颗下方是 ① 区那片白，不是桌面、不是垫子。</text>
+  <text class="txs" x="76" y="146.4">每换两三个站位回 ① 区按 w 核对白底表：白底 3 分钟漂 250 个码，漂了重按 c。</text>
+  <text class="txs" x="76" y="150.8">重新上电、换纸、改高度，也都要重按 c。激光打印的黑够黑，喷墨的黑发灰，② 区 raw 可能到不了 4095。</text>
+</svg>
