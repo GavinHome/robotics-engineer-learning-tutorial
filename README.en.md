@@ -10,7 +10,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
 | [`智能小车/`](./智能小车/) | Smart-car PCB and carrier-board design notes + photos of the built board ([`智能小车-正面.png`](./智能小车/智能小车-正面.png) ｜ [`智能小车-背面.png`](./智能小车/智能小车-背面.png)) |
-| [`day-01/`](./day-01/) … [`day-33/`](./day-33/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-34/`](./day-34/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -165,7 +165,8 @@ robotics-engineer-learning-tutorial/
 ├── day-31/                      ← Day 31: interrupts — a reaction-timer game (polling vs interrupt, three-state machine)
 ├── day-32/                      ← Day 32: TCRT5000 — one module, three AO readings (black HIGH / white LOW + height sweep, mount at 3cm)
 ├── day-33/                      ← Day 33: five AO channels fused into one "where is the line" number (weighted centroid pos + locating test sheet + seven-station calibration curve)
-├── day-34/ … day-60/            📌 to come (Day 34-38 line following / Day 39-45 attitude fusion / Day 46-51 encoder closed loop / Day 52-58 self-balancing / Day 59-60 review)
+├── day-34/                      ← Day 34: black/white decision and lost-line handling (five DO pins + measured pot thresholds + FOLLOW/LOST/STOP state machine)
+├── day-35/ … day-60/            📌 to come (Day 35-38 line following / Day 39-45 attitude fusion / Day 46-51 encoder closed loop / Day 52-58 self-balancing / Day 59-60 review)
 └── 智能小车/                    ← smart-car PCB and carrier-board design notes + photos of the built board
 ```
 
@@ -4094,9 +4095,55 @@ The criterion needs no ruler: all five raw values inside 1400~1550 with a few hu
 
 Lost-line boundary: at ±30mm (bar centred on the outermost tube) the line is still read; at ±45mm (7.5mm beyond it) it is lost. That band is what Day 34 has to probe when setting its threshold.
 
+---
+
+## Day 34 — black/white decision and lost-line handling
+
+> Hardware: TCRT5000 x5 (yesterday's five AO wires untouched; the five DO wires go on today)
+> Core: three "there is no line" cases all read pos = 0, how five DO pins become an "is it there", and why the pot threshold has to be measured
+> Full log: [`day-34/README.md`](./day-34/README.md)
+
+Yesterday's `pos` looked usable, but it has a fatal blind spot. Run yesterday's calibration table (white 1425–1672, black 3719–3802) against Day 32's air reading (~2550) and **all three "there is no line" cases read 0 — "the line is dead centre"**:
+
+| Case | per-channel n | Σn | Σ(w·n) | `pos` | what the car thinks |
+|---|---|---|---|---|---|
+| all black (array over one big black area) | 1 1 1 1 1 | 5.0 | **0** | **0** | line is centred (wrong) |
+| held in the air, no sheet | ~0.45 x5 | ~2.2 | ~0 | **≈0** | line is centred (wrong) |
+| all white (line left the array) | 0 0 0 0 0 | 0 | 0 | guarded | no line (right) |
+
+Both wrong answers share one root cause: **the weights `w = −2/−1/0/+1/+2` sum to exactly 0.** All black gives `Σ(w·n) = 0` with `Σn = 5`, so `pos = 0/5 = 0`. The air case is sneakier — Day 32 measured ~2550 with nothing underneath, **exactly halfway between white (~1500) and black (~3800)**, so each channel reads `n ≈ 0.45`, `Σn ≈ 2.2`, walking straight past yesterday's hand-picked `SUM_MIN = 0.5`. Lift the car, drive it across a gap in the table, ride it onto a shiny floor tile, and every one of those gives "line dead centre, full speed ahead".
+
+### DO only answers "is it there"
+
+The module's DO pin is the AO signal after an LM393 comparator, and that 104 potentiometer on the board is what sets its threshold. Day 32 wanted only AO because the point was watching the black/white/grey gradient; today's question is "is the line still there", so the split is settled: **DO answers "is it there", AO answers "where is it".** The position value keeps using the AO weighted centroid; DO is only the gate.
+
+The five DO wires go to GPIO1/13/14/21/47 — plain digital pins, dodging only strapping, the 22–37 range that the WROOM-1 does not bring out, JTAG, the USB serial pins and the already-used ones. Exactly five are left.
+
+Polarity is not guessed: the DO level is sampled during calibration too. `c` records the level on white, `b` records it on black; if they differ the polarity falls out on its own, and if they are the same that pot is not separating black from white at all.
+
+### The pot threshold has to be measured
+
+The target for channel i is (white_i + black_i)/2 — half a span of margin on each side. But a pot has no scale, so "turn it until it looks about right" cannot be reproduced or checked. So the `t` command *measures* it: while the sheet sweeps, the instant a channel's DO flips, the AO value at that instant is exactly the comparator threshold. Sweep out and back and the gap between the two flip points is the LM393's built-in hysteresis for free.
+
+Four verdicts, one per way to get it wrong: threshold below the white floor → always reports black; above the black ceiling → always reports white; less than 300 codes of margin on either side → the neighbouring condition will false-trigger. Anything else is `OK`.
+
+### Three "no line" cases, and both roads lead to lost
+
+```
+FOLLOW ──all five white or all five black──▶ LOST ──line seen again──▶ FOLLOW
+  │                                          │
+  │                                          └──lost for 500ms──▶ STOP ──line seen for 300ms──▶ FOLLOW
+```
+
+The guide's lost-line condition is "all five over threshold (all white) or all five under (all black)", and that is what it does. All white means the line left the array; all black means the array is over one big black area — in the latter case `pos` is exactly 0 and the car drives straight into it, so both have to count as "cannot see".
+
+Once lost, Day 24's old recipe applies: hold the last frame's direction, count the time, only stop and report once the timeout expires, never keep flailing. The 500ms comes from this: the car does roughly 300mm/s, so "the line wobbled" costs one or two frames while "really drove off the track" lasts forever. That number is derived today and **must be re-derived on Day 35** once the car's real speed is known. Recovering from `STOP` needs the line seen continuously for 300ms, otherwise the car sitting on the lost-line boundary flaps in and out — the same idea as Day 24's forced 300ms `COMMIT`.
+
+The case to watch most closely today is "stationary, no sheet": the air reading of 2550 is only 22–187 codes below the five suggested thresholds (2572–2737), so turning the pot high gives all-white and turning it low gives all-black — **both roads lead to lost**. That is not luck: as long as the threshold really does sit between white and black, an in-between value like air must be pushed to one side, and both sides are lost-line conditions. With AO alone yesterday, that same reading gave `Σn ≈ 2.2` and `pos ≈ 0` — that is what DO actually buys today.
+
 ### Next up
 
-- **Day 34**: the five DO pins come into play, a binary threshold per module, then the "all five white / all five black" lost-line condition. Today's `pos` curve and the width of the lost-line band are exactly the evidence it will set its thresholds from.
+- **Day 35**: the five modules, chassis and TB6612 become a car; open-loop line following on a fixed duty split, first checking that "which side is off, correct which way" points the right way. Today's `pos` curve, the width of the lost-line band and the 500ms timeout are what it sets its duty and direction from.
 
 ---
 
