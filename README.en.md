@@ -166,7 +166,7 @@ robotics-engineer-learning-tutorial/
 ├── day-32/                      ← Day 32: TCRT5000 — one module, three AO readings (black HIGH / white LOW + height sweep, mount at 3cm)
 ├── day-33/                      ← Day 33: five AO channels fused into one "where is the line" number (weighted centroid pos + locating test sheet + seven-station calibration curve)
 ├── day-34/                      ← Day 34: black/white decision and lost-line handling (five DO pins + measured pot thresholds + FOLLOW/LOST/STOP state machine)
-├── day-35/ … day-60/            📌 to come (Day 35-38 line following / Day 39-45 attitude fusion / Day 46-51 encoder closed loop / Day 52-58 self-balancing / Day 59-60 review)
+├── day-36/ … day-60/            📌 to come (Day 36-38 line following / Day 39-45 attitude fusion / Day 46-51 encoder closed loop / Day 52-58 self-balancing / Day 59-60 review)
 └── 智能小车/                    ← smart-car PCB and carrier-board design notes + photos of the built board
 ```
 
@@ -4101,7 +4101,7 @@ Lost-line boundary: at ±30mm (bar centred on the outermost tube) the line is st
 
 > Hardware: TCRT5000 x5 (yesterday's five AO wires untouched; the five DO wires go on today)
 > Core: three "there is no line" cases all read pos = 0, how five DO pins become an "is it there", and why the pot threshold has to be measured
-> Result: all three state-machine timings landed and all five threshold verdicts read OK — but that came from lowering the module, not from turning the pots
+> Result: all three state-machine timings landed, all four operating cases passed and all five threshold verdicts read OK — but that came from lowering the module, not from turning the pots
 > Full log: [`day-34/README.md`](./day-34/README.md)
 
 Yesterday's `pos` looked usable, but it has a fatal blind spot. Run yesterday's calibration table (white 1425–1672, black 3719–3802) against Day 32's air reading (~2550) and **all three "there is no line" cases read 0 — "the line is dead centre"**:
@@ -4154,12 +4154,67 @@ The `t` verdict was loose too: 300 codes of margin is only 14% of a 2200-code sp
 
 All five verdicts eventually read `OK`, but **not because the pots were turned**. Lining up the three `t` rounds: at 3cm first round 1899/1853/1900/1933/1964, at 3cm second round 1920/1867/1927/1977/1977, after lowering 1701/1887/1939/1931/2057 — **all three rounds land within 50 codes of each other**, while over the same period the white floors fell from 1578–1675 to 535–1016 and the black floors from 3784–3875 to 2956–3522. The thresholds barely moved; the white and black lines did. So "ten-plus attempts with no response" was never a pot-range problem — those attempts never reached the right pot. Lowering the module dropped the target from above 2700 down to 2000–2175, which lands inside the pots' untouched factory position, so not one needed turning.
 
-The price is that the spans scattered: 2126–2334 at 3cm (a 208-code spread), versus 1940–2947 after lowering (**a 1007-code spread**). The reason is that at this height the reading is extremely height-sensitive — on Day 32's curve, 2cm = 527 and 3cm = 1499, a 972-code change per centimetre — so the slightest height difference between the five modules gets amplified into hundreds of codes. The weakest is channel 0: the smallest span at 1940, with its threshold only 685 codes above the white floor, which at the 2cm slope leaves about 7mm of height tolerance. One bump after the car is assembled and channel 0 starts reporting phantom lines.
+The price is that the spans scattered: 2126–2334 at 3cm (a 208-code spread), versus 1940–2947 after lowering (**a 1007-code spread**). The reason is that at this height the reading is extremely height-sensitive — on Day 32's curve, 2cm = 527 and 3cm = 1499, a 972-code change per centimetre — so the slightest height difference between the five modules gets amplified into hundreds of codes. The weakest at calibration time was channel 0: the smallest span at 1940, with its threshold only 685 codes above the white floor, which at the 2cm slope leaves about 7mm of height tolerance.
+
+Measuring the "line centred" case (pushing the array along the 定位版 station 9 strip) turned up something worse: the white floor at the sweep position was 170–1316 codes higher than at calibration, leaving **channel 2's threshold only 88 codes above that white floor and 53 codes above the on-line reading** — the weakest channel is now channel 2, not channel 0. Back-solving against Day 32's curve, those modules were really sitting at 2.3cm (channels 0/3/4) up to 3.2cm (channel 2): the lowered height did not hold. The operating cases themselves all passed — the five DO pins stayed `[0 0 1 0 0]` throughout (an 8mm bar at 15mm spacing lights only tube 2 when the bar is centred), and `pos` ran from −114 through 0 to +64. That landmine is left for the first thing to handle once the car is assembled on Day 35.
+
+### Bench data
+
+**Calibration and measured thresholds (the round after lowering to about 2cm, where all five verdicts read OK)**
+
+| Ch | White | Black | Span | Target | Measured | n | Verdict |
+|---|---|---|---|---|---|---|---|
+| 0 | 1016 | 2956 | 1940 | 1986 | 1701 | 0.35 | OK |
+| 1 |  765 | 3386 | 2621 | 2075 | 1887 | 0.42 | OK |
+| 2 |  535 | 3482 | 2947 | 2008 | 1939 | 0.47 | OK |
+| 3 |  829 | 3522 | 2693 | 2175 | 1931 | 0.40 | OK |
+| 4 |  875 | 3244 | 2369 | 2059 | 2057 | 0.49 | OK |
+
+The 3cm first round looks different: thresholds 1899/1853/1900/1933/1964 against targets of 2666–2752, **all five landing at n = 0.09–0.17**; a second run on the new firmware differed by only 13–44 codes, so the verdict holds.
+
+**Three rounds of `t` thresholds: the white and black lines moved, the thresholds did not**
+
+| Ch | 3cm round 1 | 3cm round 2 | After lowering |
+|---|---|---|---|
+| 0 | 1899 | 1920 | 1701 |
+| 1 | 1853 | 1867 | 1887 |
+| 2 | 1900 | 1927 | 1939 |
+| 3 | 1933 | 1977 | 1931 |
+| 4 | 1964 | 1977 | 2057 |
+
+**The four operating cases**
+
+| Case | Five DO pins | Result |
+|---|---|---|
+| all white (line left the array) | `[0 0 0 0 0]` | lost, `pos` holds at +168 |
+| all black (over the ② full-width block) | `[1 1 1 1 1]` | lost → 500ms → stop + report |
+| held in the air, no sheet | `[1 1 1 1 1]` (raw ≈ 2537) | same |
+| line centred (station 9 sweep) | `[0 0 1 0 0]` | `pos` −114 → 0 → +64, LED red→green→blue |
+
+**Timings: all four measured hits**
+
+| Item | Design | Measured |
+|---|---|---|
+| `LOST` → `STOP` | 500ms | flips after the 0/100/200/300/400ms frames, exactly 500ms |
+| `STOP` → `FOLLOW` | line seen 300ms | 3 consecutive frames, ≈300ms |
+| stop heartbeat | 1s | once per second |
+| `pos` hold | unchanged while lost | +265 / +168 / +134 / +114 / +138, never moves |
+
+**White-floor drift measured while checking "line centred"**
+
+| Ch | Calibration white | Sweep white | Rise | Threshold | White-side margin |
+|---|---|---|---|---|---|
+| 0 | 1016 | 1235 | +219 | 1701 | 466 |
+| 1 |  765 | 1655 | +890 | 1887 | 232 |
+| 2 |  535 | **1851** | **+1316** | 1939 | **88** |
+| 3 |  829 | 1129 | +300 | 1931 | 802 |
+| 4 |  875 | 1045 | +170 | 2057 | 1012 |
 
 ### Next up
 
-- **Reinforce channel 0**: span 1940, only 685 codes above the white floor. Either bring the five heights back into agreement (target: spans within three or four hundred codes of each other) or shim channel 0 up on its own, or swap the tube. While there, find out which way the pot turns — quarter-turn channel 0 once and see whether its threshold moves at all and in which direction; that step has never actually succeeded yet.
-- **Day 35**: the five modules, chassis and TB6612 become a car; open-loop line following on a fixed duty split, first checking that "which side is off, correct which way" points the right way. Today's `pos` curve, the width of the lost-line band and the 500ms timeout are what it sets its duty and direction from. The first thing to do once it is on the car is re-run `c`/`b`/`t` — the height and the sheet on the car are not the same as on the bench.
+- **Day 35: open-loop line following.** Five modules + chassis + TB6612 become a car; steer with a fixed duty difference and first check that "which side is off, correct which way" points the right way. The first thing once it is on the car is to re-run `c`/`b`/`t` — the height and the white sheet on the car are both different from the bench. Then level the five modules with a ruler: the weakest is now channel 2, whose threshold 1939 sits only 88 codes above the white floor at the sweep position. ⏳
+- The pot rotation direction has never been measured: all three `t` rounds landed within 50 codes, so not one of them was an effective turn. Turn channel 0's pot a quarter turn and see whether the threshold moves and in which direction. ⏳
+- The 500ms lost-line timeout is still a derived number; once the car's real speed is measured it must be re-derived. 📌
 
 ---
 
