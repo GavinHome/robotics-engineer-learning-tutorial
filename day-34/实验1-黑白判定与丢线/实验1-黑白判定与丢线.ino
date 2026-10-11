@@ -46,9 +46,15 @@
 //   c = 标定白底（① 区，3cm 稳住约 1 秒）—— 同时记下五路 DO 在白底上的电平
 //   b = 标定黑底（② 区，稳住约 1 秒）—— 同时记下五路 DO 在黑底上的电平
 //   w = 打印白底 / 黑底 / 建议阈值 / DO 极性总表
-//   t = 量电位器：横扫纸，记录每路 DO 翻转那一刻的 AO，那就是阈值
+//   t = 量电位器：横扫纸，记录每路 DO 翻转那一刻的 AO，那就是阈值。按任意键收表
 //   p = 切换曲线模式
-// 彩灯：绿=线居中、红=偏左、蓝=偏右、白=丢线（保持方向）、红闪=丢线超时已停车
+//   q = 静音键：关掉每帧 raw 日志和 [teach] 翻点行。关掉后串口只剩状态变化和你
+//       按出来的表，怎么按都不会滚屏，看表不用往上翻。再按一次恢复
+// 命令大小写都认。t 横扫时按任意键 = 收表（q 例外，q 什么时候都能按）。
+// 每打完一张表会静默 5 秒不刷每帧日志：10Hz 一秒 10 行，表打出来一秒就被冲出屏幕。
+// 想彻底不滚屏就按 q。
+// 彩灯：绿=线居中、红=偏左、蓝=偏右、白=丢线（保持方向）、红闪=丢线超时已停车、
+//       黄=正在量电位器
 
 #include <RgbCycle.h>
 
@@ -74,8 +80,12 @@ const int   CAL_GAP_MS  = 5;
 const unsigned long LOST_TIMEOUT_MS = 500;
 // 从停车恢复要先连续看见线这么久，免得在边界上抖进抖出。
 const unsigned long RECOVER_MS      = 300;
-// 阈值离白底 / 离黑底至少要这么多码，小于它就报"余量不足"。
-const int MARGIN_MIN = 300;
+// 阈值离靶心（白黑中点）最多允许偏这么多：1/6 量程，也就是 n 允许偏离 0.5  ±0.167。
+// 300 码那个老门槛在 2200 的量程里只占 14%，会放行 n≈0.16 这种明显偏低的值。
+const int OFF_MID_DIV = 6;
+// 表刚打完的这几秒别刷每帧日志。10Hz 一秒 10 行，表打出来一秒就被冲出屏幕，
+// 每次看表都得在串口监视器里往上翻。安静几秒，按 w 可以重新打一张。
+const unsigned long TABLE_QUIET_MS = 5000;
 
 // ---------- 标定表 ----------
 int  whiteRaw[5] = { 1600, 1600, 1600, 1600, 1600 };  // 标定前用一个中性的假值
@@ -106,13 +116,34 @@ unsigned long stopSince    = 0;
 unsigned long lastReport   = 0;
 bool  plotMode  = false;
 bool  teachMode = false;
+// 每帧那行 raw 日志的开关。它 10Hz 刷屏，表打出来一秒就被冲出屏幕，看表得上翻。
+// 按 q 可以彻底关掉：关了之后只有状态变化和表会打，串口一直是安静的。
+bool  frameLog  = true;
 
 // ---------- t 命令：量电位器 ----------
-int  thrRise[5];      // DO 白→黑 那一刻的 AO（AO 上升越过阈值）
-int  thrFall[5];      // DO 黑→白 那一刻的 AO（AO 落回阈值以下）
-bool thrRiseOk[5];
-bool thrFallOk[5];
+// 两个方向都存一整串翻点，收表时取中位数。扫快了会有一两个翻点跑偏几百码
+// （20ms 一帧，AO 在两次采样之间就穿过了阈值），只取最后一对会正好踩上离群点。
+//
+// 交互是手动的：按 t 开始，横扫，按任意键收表。不自动收表——DO 在阈值附近会抖，
+// 20ms 一帧一秒内就能抖出四个翻点，自动收表会在人还没扫完的时候就自己收了。
+const int TEACH_MAX = 16;
+
+int  risePts[5][TEACH_MAX];   // DO 白→黑 那一刻的 AO
+int  fallPts[5][TEACH_MAX];   // DO 黑→白 那一刻的 AO
+int  riseCnt[5];
+int  fallCnt[5];
 bool prevOn[5];
+unsigned long tableQuietUntil  = 0;   // 表打完后的静默截止时刻
+
+// 插入排序后取中位数。会改动传入的数组，调用处传副本。
+int median(int* v, int cnt) {
+  for (int a = 1; a < cnt; a++) {
+    int k = v[a], b = a - 1;
+    while (b >= 0 && v[b] > k) { v[b + 1] = v[b]; b--; }
+    v[b + 1] = k;
+  }
+  return v[cnt / 2];
+}
 
 // ---------------------------------------------------------------- 彩灯
 
@@ -132,6 +163,7 @@ void showState() {
 // ---------------------------------------------------------------- 表
 
 void printTables() {
+  tableQuietUntil = millis() + TABLE_QUIET_MS;   // 表打完别被每帧日志冲走
   Serial.println();
   Serial.println("  路  AO脚  DO脚    白底   黑底   量程  建议阈值   DO白  DO黑  电位器");
   Serial.println("----------------------------------------------------------------------------");
@@ -204,9 +236,10 @@ void calibrate(bool black) {
 void teachStart() {
   teachMode = true;
   for (int i = 0; i < 5; i++) {
-    thrRiseOk[i] = thrFallOk[i] = false;
+    riseCnt[i] = fallCnt[i] = 0;
     prevOn[i] = (digitalRead(DO_PIN[i]) == lineLevel[i]);
   }
+  RgbCycle::setColor(255, 255, 0);          // 黄：正在量电位器，看灯就知道 t 按下去了
   Serial.println();
   Serial.println("[teach] 把纸从 ① 白底区慢慢横扫过 ② 黑块，再扫回来，做两个来回。");
   Serial.println("[teach] 每路 DO 翻转时我会记下那一刻的 AO —— 那就是这颗电位器的阈值。");
@@ -216,43 +249,54 @@ void teachStart() {
 
 void teachStop() {
   teachMode = false;
+  tableQuietUntil = millis() + TABLE_QUIET_MS;   // 表打完别被每帧日志冲走
   Serial.println();
-  Serial.println("  路  AO脚  DO脚  下翻点  上翻点  实际阈值   离白   离黑  迟滞  判定");
-  Serial.println("---------------------------------------------------------------------------");
+  Serial.println("  路    阈值    靶心  离靶心     n  散布  判定");
+  Serial.println("-------------------------------------------------------------");
   for (int i = 0; i < 5; i++) {
-    char sRise[8], sFall[8], sHyst[8];
-    if (thrRiseOk[i]) snprintf(sRise, sizeof(sRise), "%d", thrRise[i]); else strcpy(sRise, "-");
-    if (thrFallOk[i]) snprintf(sFall, sizeof(sFall), "%d", thrFall[i]); else strcpy(sFall, "-");
+    int nr = riseCnt[i], nf = fallCnt[i], total = nr + nf;
+    char sSpread[8];
 
-    if (!thrRiseOk[i] && !thrFallOk[i]) {
-      Serial.printf("  %d   %-4s  %-4s  %6s  %7s        -      -     -     -   没扫到，重扫\n",
-                    i, AO_NAME[i], DO_NAME[i], sRise, sFall);
+    if (total == 0) {
+      Serial.printf("  %d  %5s  %6s  %7s  %5s  %4s  没扫到，重扫\n",
+                    i, "-", "-", "-", "-", "-");
       continue;
     }
-    int thr;
-    if (thrRiseOk[i] && thrFallOk[i]) thr = (thrRise[i] + thrFall[i]) / 2;
-    else if (thrRiseOk[i])            thr = thrRise[i];
-    else                              thr = thrFall[i];
 
-    int mWhite = thr - whiteRaw[i];
-    int mBlack = blackRaw[i] - thr;
-    if (thrRiseOk[i] && thrFallOk[i]) snprintf(sHyst, sizeof(sHyst), "%d", abs(thrRise[i] - thrFall[i]));
-    else                              strcpy(sHyst, "-");
+    // 两个方向的翻点合到一起取中位数。样本多，个别跑偏的翻点拉不动中位数。
+    int buf[2 * TEACH_MAX];
+    for (int k = 0; k < nr; k++) buf[k] = risePts[i][k];
+    for (int k = 0; k < nf; k++) buf[nr + k] = fallPts[i][k];
+    int thr  = median(buf, total);          // median 会排序，之后 buf[0]/buf[total-1] 就是最小最大
+    int spread = buf[total - 1] - buf[0];
+    snprintf(sSpread, sizeof(sSpread), "%d", spread);
 
-    const char* verdict;
-    if (!calibrated)             verdict = "没标定，判不了";
-    else if (thr <= whiteRaw[i]) verdict = "阈值掉到白底以下，永远报黑";
-    else if (thr >= blackRaw[i]) verdict = "阈值顶到黑底以上，永远报白";
-    else if (mWhite < MARGIN_MIN || mBlack < MARGIN_MIN) verdict = "余量不足，旁边那侧会误判";
-    else                         verdict = "OK";
+    // 判定只看"离靶心多远"：已分开只保证阈值没掉出 [白, 黑] 这个宽 2000+ 码的区间，
+    // 不保证它在中间。而 n≈0.1 和 n≈0.5 在 w 表里都显示"已分开"。
+    char verdict[48];
+    int mid    = (whiteRaw[i] + blackRaw[i]) / 2;
+    int span   = blackRaw[i] - whiteRaw[i];
+    int offMid = thr - mid;                 // 负 = 偏白侧（阈值偏低），正 = 偏黑侧
+    int limit  = span / OFF_MID_DIV;
+    int nPct   = (thr - whiteRaw[i]) * 100 / span;   // 阈值折合成量程百分比
+    if (!calibrated)             strcpy(verdict, "没标定，判不了");
+    else if (thr <= whiteRaw[i]) strcpy(verdict, "阈值掉到白底以下，永远报黑");
+    else if (thr >= blackRaw[i]) strcpy(verdict, "阈值顶到黑底以上，永远报白");
+    else if (offMid < -limit)
+      snprintf(verdict, sizeof(verdict), "偏低 %d 码，往上调", -offMid);
+    else if (offMid >  limit)
+      snprintf(verdict, sizeof(verdict), "偏高 %d 码，往下调", offMid);
+    else
+      snprintf(verdict, sizeof(verdict), "OK");
 
-    Serial.printf("  %d   %-4s  %-4s  %6s  %7s  %8d  %6d  %6d  %5s  %s\n",
-                  i, AO_NAME[i], DO_NAME[i], sRise, sFall, thr, mWhite, mBlack, sHyst, verdict);
+    Serial.printf("  %d  %5d  %6d  %+7d  0.%02d  %4s  %s\n",
+                  i, thr, mid, offMid, nPct, sSpread, verdict);
   }
-  Serial.println("---------------------------------------------------------------------------");
-  Serial.println("  下翻点 = AO 上升、DO 翻成「压线」那一刻；上翻点 = AO 落回去、DO 翻回「没压线」。");
-  Serial.println("  迟滞 = 两个翻点之差，LM393 自带。迟滞大 = 黑白交界处有一段 AO 读数两种答案都对。");
+  Serial.println("-------------------------------------------------------------");
+  Serial.println("  阈值 = DO 翻转那一刻的 AO 取中位数。n=0.50 才是正中间。");
+  Serial.println("  偏低往上调、偏高往下调；散布到几百码 = 那一路扫快了，信中位数。");
   Serial.println();
+  showState();
 }
 
 void teachPoll() {
@@ -260,12 +304,12 @@ void teachPoll() {
     int  ao = analogRead(AO_PIN[i]);
     bool on = (digitalRead(DO_PIN[i]) == lineLevel[i]);
     if (on && !prevOn[i]) {
-      thrRise[i] = ao; thrRiseOk[i] = true;
-      Serial.printf("[teach] 路 %d  DO 白→黑 @ AO %4d\n", i, ao);
+      if (riseCnt[i] < TEACH_MAX) risePts[i][riseCnt[i]++] = ao;
+      if (frameLog) Serial.printf("[teach] 路 %d  DO 白→黑 @ AO %4d\n", i, ao);
     }
     if (!on && prevOn[i]) {
-      thrFall[i] = ao; thrFallOk[i] = true;
-      Serial.printf("[teach] 路 %d  DO 黑→白 @ AO %4d\n", i, ao);
+      if (fallCnt[i] < TEACH_MAX) fallPts[i][fallCnt[i]++] = ao;
+      if (frameLog) Serial.printf("[teach] 路 %d  DO 黑→白 @ AO %4d\n", i, ao);
     }
     prevOn[i] = on;
   }
@@ -285,6 +329,14 @@ void handleCmd(char c) {
   if (c == 't') {
     if (teachMode) teachStop();
     else           teachStart();
+    return;
+  }
+  if (c == 'q') {
+    frameLog = !frameLog;
+    Serial.printf("[log] 串口%s。%s\n",
+                  frameLog ? "恢复" : "静音",
+                  frameLog ? "每帧 raw 日志和 [teach] 行又回来了"
+                           : "之后只剩状态变化和你按出来的表，不会再滚屏");
     return;
   }
 }
@@ -309,8 +361,9 @@ void setup() {
   Serial.println("TCRT5000 五路 DO ready. AO 全在 ADC1，VCC=3V3");
   Serial.println("AO：#0=GPIO6  #1=GPIO7  #2=GPIO8  #3=GPIO2  #4=GPIO3");
   Serial.println("DO：#0=GPIO1  #1=GPIO13 #2=GPIO14 #3=GPIO21 #4=GPIO47");
-  Serial.println("命令：c=标白底  b=标黑底  w=总表  t=量电位器  p=曲线模式");
+  Serial.println("命令：c=标白底  b=标黑底  w=总表  t=量电位器  p=曲线模式  q=静音");
   Serial.println("先按 c 再按 b，然后按 t 量五路 DO 的实际阈值。");
+  Serial.println("嫌刷屏就按 q：关掉每帧 raw 日志和 [teach] 行，只剩状态变化和表。");
   delay(200);
 }
 
@@ -320,7 +373,9 @@ void loop() {
   while (Serial.available() > 0) {
     char c = (char)Serial.read();
     if (c == '\n' || c == '\r' || c == ' ') continue;
-    if (teachMode && c != 't') { teachStop(); continue; }   // t 模式下任意键 = 收表
+    if (c >= 'A' && c <= 'Z') c += 32;   // 大小写都认：按了大写 T 不能静默没反应
+    // t 横扫时任意键 = 收表；q 例外，它是全局静音键，横扫中也能按
+    if (teachMode && c != 't' && c != 'q') { teachStop(); continue; }
     handleCmd(c);
   }
 
@@ -410,6 +465,8 @@ void loop() {
 
   if (plotMode) {
     Serial.printf("%ld %d\n", pos, onCount * 250);
+  } else if (!frameLog || now < tableQuietUntil) {
+    // 每帧日志关着，或者表刚打完：静几秒让人在串口监视器里看完，别被 10Hz 冲走上翻
   } else {
     Serial.printf("[%d %d %d %d %d] n=%d%s | raw %4d %4d %4d %4d %4d | pos %+5ld %s",
                   onLine[0], onLine[1], onLine[2], onLine[3], onLine[4], onCount,

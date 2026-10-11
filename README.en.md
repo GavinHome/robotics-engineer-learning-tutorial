@@ -4101,6 +4101,7 @@ Lost-line boundary: at ±30mm (bar centred on the outermost tube) the line is st
 
 > Hardware: TCRT5000 x5 (yesterday's five AO wires untouched; the five DO wires go on today)
 > Core: three "there is no line" cases all read pos = 0, how five DO pins become an "is it there", and why the pot threshold has to be measured
+> Result: all three state-machine timings landed and all five threshold verdicts read OK — but that came from lowering the module, not from turning the pots
 > Full log: [`day-34/README.md`](./day-34/README.md)
 
 Yesterday's `pos` looked usable, but it has a fatal blind spot. Run yesterday's calibration table (white 1425–1672, black 3719–3802) against Day 32's air reading (~2550) and **all three "there is no line" cases read 0 — "the line is dead centre"**:
@@ -4125,7 +4126,9 @@ Polarity is not guessed: the DO level is sampled during calibration too. `c` rec
 
 The target for channel i is (white_i + black_i)/2 — half a span of margin on each side. But a pot has no scale, so "turn it until it looks about right" cannot be reproduced or checked. So the `t` command *measures* it: while the sheet sweeps, the instant a channel's DO flips, the AO value at that instant is exactly the comparator threshold. Sweep out and back and the gap between the two flip points is the LM393's built-in hysteresis for free.
 
-Four verdicts, one per way to get it wrong: threshold below the white floor → always reports black; above the black ceiling → always reports white; less than 300 codes of margin on either side → the neighbouring condition will false-trigger. Anything else is `OK`.
+Four verdicts, one per way to get it wrong: threshold below the white floor → always reports black; above the black ceiling → always reports white; more than 1/6 of a span off the target midpoint → "low by N codes (n=0.xx), turn up" or "high by N codes (n=0.xx), turn down", giving both the offset and the direction. Anything else is `OK`.
+
+**"Already separated" is not "already centred".** This is the easiest thing to get wrong today: the last column of the `w` table only compares `DO白` against `DO黑`, so it prints "已分开" as long as the pot's flip point is *not exactly* the white floor or the black floor. That interval is over 2000 codes wide — a threshold hugging the white side (n=0.1), one hugging the black side (n=0.9) and one dead centre (n=0.5) **all print "已分开"**. So "已分开" is only a floor: it says the pot was actually turned and the polarity is not reversed. Where the threshold actually sits, only `t` knows. Also, "turn up" means "make the number bigger" — whether clockwise or anticlockwise achieves that depends on how each board is soldered, so the firmware cannot possibly know; you find out by turning it once and measuring again. All five channels measured "已分开" while all five sat near n=0.1 (see the bench result below).
 
 ### Three "no line" cases, and both roads lead to lost
 
@@ -4141,9 +4144,22 @@ Once lost, Day 24's old recipe applies: hold the last frame's direction, count t
 
 The case to watch most closely today is "stationary, no sheet": the air reading of 2550 is only 22–187 codes below the five suggested thresholds (2572–2737), so turning the pot high gives all-white and turning it low gives all-black — **both roads lead to lost**. That is not luck: as long as the threshold really does sit between white and black, an in-between value like air must be pushed to one side, and both sides are lost-line conditions. With AO alone yesterday, that same reading gave `Σn ≈ 2.2` and `pos ≈ 0` — that is what DO actually buys today.
 
+### Bench result: state machine fully right, all five pots OK (by lowering the module, not by turning)
+
+Calibration was clean: at 3cm, white 1499–1675, black 3784–3875, spans 2126–2334, and all five channels gave `DO白=0` / `DO黑=1` — same polarity, nothing reversed. All three state-machine timings hit exactly: `LOST`→`STOP` after precisely 500ms (frames at 0/100/200/300/400ms), `STOP`→`FOLLOW` after three consecutive frames with the line visible (≈300ms), and a heartbeat every second while stopped. `pos` held steady at +265/+168/+134/+114 throughout the lost period.
+
+The first `t` run produced 43 flip points, giving thresholds 1899/1853/1900/1933/1964 against targets of 2666–2752 — **all five land at n = 0.09–0.17 instead of 0.5**; a second run on the new firmware differed by only 13–44 codes, so the verdict holds. Meanwhile the `w` table printed "已分开" for all five, which is exactly the trap: that column only says the threshold did not fall out of the 2000-code-wide [white, black] interval, not that it sits in the middle. The consequences are written straight into the log: raw 2031 — only 356 codes above the white floor — already counts as "on line", and when the module hovered 4cm above the white sheet (raw 2000–2100) all five DO pins reported "on line" → `n=5 all black` → lost → stop.
+
+The `t` verdict was loose too: 300 codes of margin is only 14% of a 2200-code span, and against these measurements channels 0, 2 and 3 would all have been handed `OK`. It now judges distance from the target midpoint (allowing 1/6 of a span). Sweeping too fast also skews individual flip points by hundreds of codes (20ms frames, so AO crosses the threshold between two samples) — channel 0 produced a `1660`/`2212` outlier pair — so the firmware now collects every flip point and takes the median, plus a "spread" column that doubles as a sweep-speed check.
+
+All five verdicts eventually read `OK`, but **not because the pots were turned**. Lining up the three `t` rounds: at 3cm first round 1899/1853/1900/1933/1964, at 3cm second round 1920/1867/1927/1977/1977, after lowering 1701/1887/1939/1931/2057 — **all three rounds land within 50 codes of each other**, while over the same period the white floors fell from 1578–1675 to 535–1016 and the black floors from 3784–3875 to 2956–3522. The thresholds barely moved; the white and black lines did. So "ten-plus attempts with no response" was never a pot-range problem — those attempts never reached the right pot. Lowering the module dropped the target from above 2700 down to 2000–2175, which lands inside the pots' untouched factory position, so not one needed turning.
+
+The price is that the spans scattered: 2126–2334 at 3cm (a 208-code spread), versus 1940–2947 after lowering (**a 1007-code spread**). The reason is that at this height the reading is extremely height-sensitive — on Day 32's curve, 2cm = 527 and 3cm = 1499, a 972-code change per centimetre — so the slightest height difference between the five modules gets amplified into hundreds of codes. The weakest is channel 0: the smallest span at 1940, with its threshold only 685 codes above the white floor, which at the 2cm slope leaves about 7mm of height tolerance. One bump after the car is assembled and channel 0 starts reporting phantom lines.
+
 ### Next up
 
-- **Day 35**: the five modules, chassis and TB6612 become a car; open-loop line following on a fixed duty split, first checking that "which side is off, correct which way" points the right way. Today's `pos` curve, the width of the lost-line band and the 500ms timeout are what it sets its duty and direction from.
+- **Reinforce channel 0**: span 1940, only 685 codes above the white floor. Either bring the five heights back into agreement (target: spans within three or four hundred codes of each other) or shim channel 0 up on its own, or swap the tube. While there, find out which way the pot turns — quarter-turn channel 0 once and see whether its threshold moves at all and in which direction; that step has never actually succeeded yet.
+- **Day 35**: the five modules, chassis and TB6612 become a car; open-loop line following on a fixed duty split, first checking that "which side is off, correct which way" points the right way. Today's `pos` curve, the width of the lost-line band and the 500ms timeout are what it sets its duty and direction from. The first thing to do once it is on the car is re-run `c`/`b`/`t` — the height and the sheet on the car are not the same as on the bench.
 
 ---
 
