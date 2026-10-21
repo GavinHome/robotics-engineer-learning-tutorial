@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 210 297">
+  <style>
+    @page { size: 210mm 297mm; margin: 0; }
+    text { font-family: -apple-system, "PingFang SC", "Heiti SC", "Noto Sans SC", "Microsoft YaHei", sans-serif; }
+    .ts  { font-size: 3.0px; fill: #222; }
+    .txs { font-size: 2.6px; fill: #555; }
+    .tb  { font-size: 3.6px; fill: #000; font-weight: 700; }
+    .tw  { font-size: 3.2px; fill: #fff; }
+    .twb { font-size: 4.0px; fill: #fff; font-weight: 700; }
+  </style>
+
+  <rect x="0" y="0" width="210" height="297" fill="#ffffff"/>
+
+  <!-- ==================== 标题 ==================== -->
+  <text class="tb" x="6" y="7.5">Day 35 黑底标定纸（A4 竖放 210 × 297 mm）</text>
+  <text class="ts" x="6" y="12.5">打印：A4 / 缩放 100% / 边距“无” / 关“适应页面” / 勾“打印背景图形”。黑区不够黑是正常的，打印黑吸红外弱（实测 2000~3000）。</text>
+  <text class="ts" x="6" y="17.5">黑区故意做到 190 × 150 mm：五路阵列展开约 75 mm，必须整团都压在黑里，最外两颗不能出界。车歪一点也不会采到黑白混合。</text>
+
+  <!-- ==================== 大黑区 ==================== -->
+  <rect x="10" y="22" width="190" height="150" fill="#000000"/>
+  <text class="twb" x="105" y="42" text-anchor="middle">黑底标定区（190 × 150）</text>
+  <text class="tw"  x="105" y="50" text-anchor="middle">按 b：五路全压黑，保持高度、别动、别挡光，约 1 秒</text>
+  <text class="tw"  x="105" y="58" text-anchor="middle">按 t：从白纸慢慢推进来，越过这条边再慢慢退回白纸</text>
+  <text class="tw"  x="105" y="66" text-anchor="middle">两个来回，慢——快了散布会大到上千</text>
+
+  <!-- 边界标记（用于 t 的扫越点） -->
+  <line x1="10" y1="172" x2="200" y2="172" stroke="#000" stroke-width="0.5" stroke-dasharray="3,2"/>
+  <text class="txs" x="10" y="177">↑ 黑白交界：电位器阈值就在这一带翻，t 扫的是这条线</text>
+
+  <!-- ==================== 白底标定提示 ==================== -->
+  <text class="tb" x="6" y="185">白底不在这张纸上</text>
+  <text class="ts" x="6" y="190">按 c 用一张空白 A4 的白，或本页下方这片白（压住几行字没关系）。别用桌面 / 木板 / 鼠标垫——有纹路、有色差，不是可信基准。</text>
+  <text class="ts" x="6" y="195">白底会漂（Day 32 实测 3 分钟约 250 码）：重新上电、换纸、改高度，都要重按 c 再按 b。</text>
+
+  <!-- ==================== 顺序 ==================== -->
+  <text class="tb" x="6" y="203">顺序（一步都别省）</text>
+  <text class="ts" x="6" y="208">1. 车架在空白 A4 上，五路下方全是纸白 → 按 c</text>
+  <text class="ts" x="6" y="213">2. 整车推到本页黑区上，五路全压黑 → 按 b</text>
+  <text class="ts" x="6" y="218">3. 按 w 看标定表：五路白底相差 &lt;400 码、每路量程 &gt;1000。不达标就回第 1 步，别往下走</text>
+  <text class="ts" x="6" y="223">4. 按 t，车放白纸上、阵列正对黑区边缘，慢速推过界再退回，两个来回</text>
+  <text class="ts" x="6" y="228">5. 看 t 表：散布 &lt;200、判定全 OK。任何一路“永远报黑/永远报白/没扫到”= 电位器要调</text>
+
+  <!-- ==================== 电位器 ==================== -->
+  <text class="tb" x="6" y="236">电位器怎么调（五路 DO 的硬件阈值，跟固件无关）</text>
+  <text class="ts" x="6" y="241">t 表里“离靶心”= 阈值离黑白中点差多少码。偏低 = 阈值掉到白底以下，车会把白底也当成黑，永远报黑、丢线判不出来。</text>
+  <text class="ts" x="6" y="246">每颗拧 1/4 圈 → 重按 t → 看“离靶心”往零走还是往远走。往远走就换反方向。一次只拧一颗，记下方向和圈数。</text>
+  <text class="ts" x="6" y="251">拧完必须重按 c / b / t：电位器改了，t 表的判定全变。改完不重扫等于没改。</text>
+  <text class="ts" x="6" y="256">模块上的信号灯是硬件比较器的指示，与固件无关：灯亮 = DO 在“有反光”侧。拧电位器时盯灯，比盯串口快。</text>
+
+  <!-- ==================== 验收 ==================== -->
+  <text class="tb" x="6" y="264">验收线</text>
+  <text class="ts" x="6" y="269">w 表：五路白底相差 &lt;400 码、量程都 &gt;1000。</text>
+  <text class="ts" x="6" y="274">t 表：散布 &lt;200、判定全 OK、五路都“已分开”（= DO 能在黑白之间干净翻一次）。</text>
+  <text class="ts" x="6" y="279">两条都过了，才轮到《巡线轨迹-A4》上线跑。</text>
+
+  <!-- ==================== 黑能更强 ==================== -->
+  <text class="tb" x="6" y="287">有条件就把黑描浓</text>
+  <text class="ts" x="6" y="292">打印黑到不了 4095（约 2700）。用黑色笔 / 染料在黑区里再描一遍，raw 更高、量程更大、靶心离两端都远——标定余量就是从这里来的。</text>
+
+</svg>
