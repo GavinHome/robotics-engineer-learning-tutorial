@@ -10,7 +10,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
 | [`智能小车/`](./智能小车/) | Smart-car PCB and carrier-board design notes + photos of the built board ([`智能小车-正面.png`](./智能小车/智能小车-正面.png) ｜ [`智能小车-背面.png`](./智能小车/智能小车-背面.png)) |
-| [`day-01/`](./day-01/) … [`day-34/`](./day-34/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-35/`](./day-35/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -166,6 +166,7 @@ robotics-engineer-learning-tutorial/
 ├── day-32/                      ← Day 32: TCRT5000 — one module, three AO readings (black HIGH / white LOW + height sweep, mount at 3cm)
 ├── day-33/                      ← Day 33: five AO channels fused into one "where is the line" number (weighted centroid pos + locating test sheet + seven-station calibration curve)
 ├── day-34/                      ← Day 34: black/white decision and lost-line handling (five DO pins + measured pot thresholds + FOLLOW/LOST/STOP state machine)
+├── day-35/                      ← Day 35: open-loop line following (three fixed duty levels + steerSign direction flip + calibration sheet split by array size)
 ├── day-36/ … day-60/            📌 to come (Day 36-38 line following / Day 39-45 attitude fusion / Day 46-51 encoder closed loop / Day 52-58 self-balancing / Day 59-60 review)
 └── 智能小车/                    ← smart-car PCB and carrier-board design notes + photos of the built board
 ```
@@ -4210,11 +4211,87 @@ The 3cm first round looks different: thresholds 1899/1853/1900/1933/1964 against
 | 3 |  829 | 1129 | +300 | 1931 | 802 |
 | 4 |  875 | 1045 | +170 | 2057 | 1012 |
 
+---
+
+## Day 35 — open-loop line following
+
+> Hardware: Day 34's five AO + five DO untouched, plus the TB6612 dual motor already tuned on Day 21
+> Core: no control law — steer only by "which side is the line on", and first prove the direction is right
+> Result: 18 s of continuous following and a 2 s weave period both measured; the direction was inverted by the mirrored array and fixed with `s`; the 90° bend is still untested
+> Full log: [`day-35/README.md`](./day-35/README.md)
+
+Day 33 gave `pos` (where the line is), Day 34 gave DO (whether the line is still there), and only one step seemed left: turn `pos` into wheel duty. But `turn = Kp × pos` is so natural a formula that it skips something more fundamental — **the direction**. Get the direction wrong and `Kp` only amplifies backwards: the line is on the left, the car corrects right, and it drifts further off with every correction. Worse, a small `Kp` corrects so weakly that it looks like "the car shivers a bit but keeps going", easily mistaken for "not enough P" instead of "the sign is flipped".
+
+So today **deliberately drops the proportional term** and uses only three fixed duty levels: `|pos| ≤ deadband` runs both wheels at cruise, and an off-center `pos` drops the inner wheel to 75 (measured on Day 21 to sit below the stall point, so the outer wheel drags the inner one along). `pos < 0 → slow the left wheel` is the single thing to prove today. Direction lives in one constant `steerSign`, flippable from serial with `s` — no reflash needed, both directions testable.
+
+`map()` is also off the table: wheel response is nonlinear, and the same duty increment changes speed completely differently at low and high speed (`DUTY_SLOW = 75` is deliberately below the stall point). Three gears sidestep that assumption entirely. When P control arrives on Day 36, the same assumption comes back as `turn = Kp × pos`.
+
+### The direction was inverted by the mirrored array
+
+The five channels were wired 0~4 from the "car nose facing me" viewpoint, so the array is mirrored relative to the **driving direction**. `W[5] = {-2,-1,0,1,2}` assumes channel 0 is leftmost; it is actually rightmost → **the sign of `pos` is inverted end to end**. This is not a sign typo, it is the assembly viewpoint differing from the driving viewpoint by 180°.
+
+The log evidence is clean: before the flip `pos` ran one-sidedly positive (510 frames in the +400 bucket versus 49 frames anywhere negative), the car corrected right forever and then lost the line; after a single `s` (`steerSign = -1`) both sides balanced out and the car started correcting toward the line.
+
+`S`, not a code change and not a rewire: **direction is a quantity to be measured**, one serial key flips it, and it is written to flash immediately so the next boot is already correct.
+
+### A calibration zone must be sized by the array span, not by the car
+
+The first track sheet printed the black/white calibration zones on the same sheet, with a 73×27mm black block. The five-channel array spans about 75mm — **tilt the car slightly and the outermost one or two sensors fall outside the block, so `b` samples a black/white mix**. Evidence: the `t` table's midpoints scattered from 1223 to 2187 across channels, a thousand codes apart on the same black, the whole table void, four channels judged "always reports black".
+
+Split into two sheets: [`巡线轨迹-A4.svg`](./day-35/巡线轨迹-A4.svg) holds only the track (straight + 90° bend + ruler), and [`黑底标定-A4.svg`](./day-35/黑底标定-A4.svg) holds a 190×150mm black zone. **The black zone must exceed the array span along the array direction** — the first sizing rule for a calibration sheet.
+
+A related trap: after adding NVS persistence (calibration table, direction and duty all in flash, restored at boot), the second `t` table's midpoints were **byte-identical** to the first round. Only `t` had been pressed, not `c`/`b`, so the old dirty calibration was restored as-is. `t` only measures the pot's flip point; midpoints come from `white`/`black` — **if the midpoints look wrong, first check whether `c`/`b` was pressed**.
+
+### On-car results
+
+**Calibration (after mounting, `w` table)**
+
+| Ch | White | Black | Span | Midpoint | DO@white | DO@black | Pot |
+|---|---|---|---|---|---|---|---|
+| 0 | 229 | 2196 | 1967 | 1212 | 0 | 1 | split |
+| 1 | 216 | 1877 | 1661 | 1046 | 0 | 1 | split |
+| 2 | 400 | 2088 | 1688 | 1244 | 0 | 1 | split |
+| 3 | 362 | 2280 | 1918 | 1321 | 0 | 1 | split |
+| 4 | 199 | **921** | **722** | 560 | 0 | 1 | split |
+
+Polarity is consistent across all five, `t` spreads are 18~55 (all < 200), verdicts are four `OK` plus channel 2 low by 287 codes (the fail line is span/6 = 281, a hair over). Absolute values dropped an order of magnitude versus the bench (bench white 1000~1600, here 199~400) — the car runs on printed black over blank A4, not the Day 32 black tape, but normalization carries it. **Channel 4 is the weakest of the five**: span 722 against 1661~1967 for the others, black only reaching 921. That is this channel not sampling the same black as the rest, not a pot problem (the pot only sets the DO flip point, it cannot touch AO).
+
+**It ran**
+
+| Metric | Value |
+|---|---|
+| Longest continuous follow | **180 frames = 18 s** |
+| Weave rate | 55 direction flips over 111.9 s of following ≈ **0.49 flips/s** (about a 2 s period) |
+| Weave amplitude | `pos` ±800 |
+| Steady-state error | `pos` parked at +400 (510 frames), line sits 15 mm right of center |
+| "lost → brake" events | 29, with 68% of all frames in the braked state |
+
+Two kinds of line loss, both captured: **all-white** (699 frames) is over-correcting out of the array and recovers on its own (47 "line is back" events); **all-black** (931 frames) is all five AO jumping to 2895~3492 at once — that is the **dark tabletop** (air reads only 2550), not an over-wide line: the 20 cm straight runs out and the car drives off the sheet onto the table. Nearly all 29 brake events are this, and it is not a fault.
+
+The +400 steady-state error is inherent to open loop: the car has a persistent rightward disturbance that must be cancelled with steering authority, and that authority comes from a `pos` offset — so the steady state necessarily parks at a right-of-center `pos`. This is what has to be dealt with before D term on Day 37, and before P on Day 36.
+
+**White-floor drift (measured while running)**
+
+| Ch | Calibrated white | While running | Drift |
+|---|---|---|---|
+| 0 | 229 | 320 | +91 |
+| 1 | 216 | 240 | +24 |
+| 2 | 400 | **786** | **+386** |
+| 3 | 362 | **589** | **+227** |
+| 4 | 199 | 236 | +37 |
+
+Channels 2 and 3 drift badly and drag the centroid off the true position. Re-run `c` then `b` before each session — two seconds of work.
+
+One retracted judgement: `[1 0 0 0 0] raw 1163 233 479 471 252` first looked like channel 0 reading falsely high, i.e. a fault. Across the whole log there are only **19 frames** where channel 0 > 900 while channel 1 < 400, and every one of them is at a line-loss instant — a transition value where the line is leaving the array and channel 0 is still on its edge. Not a steady-state problem.
+
 ### Next up
 
-- **Day 35: open-loop line following.** Five modules + chassis + TB6612 become a car; steer with a fixed duty difference and first check that "which side is off, correct which way" points the right way. The first thing once it is on the car is to re-run `c`/`b`/`t` — the height and the white sheet on the car are both different from the bench. Then level the five modules with a ruler: the weakest is now channel 2, whose threshold 1939 sits only 88 codes above the white floor at the sweep position. ⏳
-- The pot rotation direction has never been measured: all three `t` rounds landed within 50 codes, so not one of them was an effective turn. Turn channel 0's pot a quarter turn and see whether the threshold moves and in which direction. ⏳
-- The 500ms lost-line timeout is still a derived number; once the car's real speed is measured it must be re-derived. 📌
+- **Day 36: P control.** Replace the three gears with `turn = Kp × pos`, using today's measured weave period (about 2 s) and amplitude (`pos` ±800) to pick a `Kp` starting point: reaching the same weave amplitude under P control takes far less gain. ⏳
+- **The 90° bend** is the most critical part of Day 35 and went unmeasured. Open loop has no integral term, so in the bend `pos` keeps one sign and the car steers until it loses the line. Three loss points, three fixes: lose before the bend = cruise duty too high; lose at the apex = slow gear too slow; lose after the bend = recovery too slow. ⏳
+- Pot rotation direction: found this time by "LED lit on white, dark on black" (a `t` verdict of "always reports black" literally means the LED stays dark on white). The direction must be recorded per module — the soldering differs, it is not universal. ⏳
+- The 500ms lost-line timeout is still derived: the car's real speed was never measured, and how far it moves in 100 ms decides where "the line twitched" ends and "it really left the track" begins. 📌
+- `TRIM_RIGHT` is still 0; the +400 rightward bias is uncompensated. Only an encoder closed loop (Day 46 onward) cures two mismatched motors. 📌
+- Channel 4's 722-code span is the weakest of the five; measure its height alone and check whether its LED is half blocked. ⏭️
 
 ---
 
