@@ -4218,7 +4218,7 @@ The 3cm first round looks different: thresholds 1899/1853/1900/1933/1964 against
 > Hardware: Day 34's five AO + five DO untouched, plus the TB6612 dual motor already tuned on Day 21
 > Core: no control law — steer only by "which side is the line on", and first prove the direction is right
 > Result: 18 s of continuous following and a 2 s weave period both measured; the direction was inverted by the mirrored array and fixed with `s`; the 90° bend is still untested
-> Full log: [`day-35/README.md`](./day-35/README.md)
+> Full logs: [`day-35/串口打印.txt`](./day-35/串口打印.txt) (ground run) and [`day-35/串口打印-架起黑白模拟.txt`](./day-35/串口打印-架起黑白模拟.txt) (propped up, line simulated with a black prop)
 
 Day 33 gave `pos` (where the line is), Day 34 gave DO (whether the line is still there), and only one step seemed left: turn `pos` into wheel duty. But `turn = Kp × pos` is so natural a formula that it skips something more fundamental — **the direction**. Get the direction wrong and `Kp` only amplifies backwards: the line is on the left, the car corrects right, and it drifts further off with every correction. Worse, a small `Kp` corrects so weakly that it looks like "the car shivers a bit but keeps going", easily mistaken for "not enough P" instead of "the sign is flipped".
 
@@ -4284,9 +4284,25 @@ Channels 2 and 3 drift badly and drag the centroid off the true position. Re-run
 
 One retracted judgement: `[1 0 0 0 0] raw 1163 233 479 471 252` first looked like channel 0 reading falsely high, i.e. a fault. Across the whole log there are only **19 frames** where channel 0 > 900 while channel 1 < 400, and every one of them is at a line-loss instant — a transition value where the line is leaving the array and channel 0 is still on its edge. Not a steady-state problem.
 
+**Propped up, line simulated with a black prop**
+
+The battery box cannot drive the car, so the ground run limped along on leftover power. Verifying direction needs no driving at all: prop the car up, power it over USB, lay white paper underneath, and move a small black prop around as the line — cover channel 2 (straight) → cover 1+2 (right side of the car) → cover 3+4 (left side) → back to 2 → right again. The log matches exactly:
+
+```
+2(25f) → 1(3) → 0(6) → 0+1(1) → 0(48) → 4(17) → 2(32) → 3(2) → 2(45) → 0(25) → 4(4)
+```
+
+The direction is right: covering channel 4 (physically the left side) gives `pos` = **+925** (mean of 21 frames) → left arc L75 R115; covering channel 2 (centre) gives `pos` = **−169** (mean of 102 frames) → right arc L115 R75; covering channel 0 (physically the right side) gives `pos` −748 ~ −807 → right arc. The sign of `pos` agrees with the physical side, so `s` is on the correct setting (`steerSign = −1`) — **one more press inverts it**. This is a third confirmation of the array mirror: channels 0/1 sit on the car's right, 3/4 on its left, exactly opposite to what `W[]` assumes. The wheels never reverse, only the two sides' speed differ — that is how three-gear open loop turns.
+
+The bench proves the direction logic and the DO/AO chain. Wheel speed, battery capability and real lost-line timing still need a ground run. Two real problems surfaced here:
+
+- **Channel 4 saturates and pins the centroid**: covering it makes its AO swing 235~3951 while its black is only 921 (722-code span). Normalised `n[4]` passes 1 and keeps climbing, so one channel locks the centroid at +925; it never converges in 17 frames and loses the line on its own. No pot can fix this — reading past the black value is a height/blocking problem, and `W[4]=2` doubles it.
+- **White-floor drift is visible even on the bench**: with the line square on channel 2, `pos` is −169 rather than 0 — channel 0 reads 647 and channel 1 reads 591 (calibrated white 229/216, about 2.7×), while channel 3 = 279 and channel 4 = 292 sit on white. Without the drift `pos` would be +143 — a **312-code swing, twice the 150 deadband**. It drifts while standing still, so running only makes it worse.
+
 ### Next up
 
 - **Day 36: P control.** Replace the three gears with `turn = Kp × pos`, using today's measured weave period (about 2 s) and amplitude (`pos` ±800) to pick a `Kp` starting point: reaching the same weave amplitude under P control takes far less gain. ⏳
+- **The battery box cannot drive the car**: the propped-up run needed USB power. Insufficient power corrupts speed, duty response and the lost-line timeout at once, and today's "18 s" and "0.49 flips/s" are both affected. Fix it before tuning P: swap the batteries / check for a stalled motor / measure the actual working voltage. ⏳
 - **The 90° bend** is the most critical part of Day 35 and went unmeasured. Open loop has no integral term, so in the bend `pos` keeps one sign and the car steers until it loses the line. Three loss points, three fixes: lose before the bend = cruise duty too high; lose at the apex = slow gear too slow; lose after the bend = recovery too slow. ⏳
 - Pot rotation direction: found this time by "LED lit on white, dark on black" (a `t` verdict of "always reports black" literally means the LED stays dark on white). The direction must be recorded per module — the soldering differs, it is not universal. ⏳
 - The 500ms lost-line timeout is still derived: the car's real speed was never measured, and how far it moves in 100 ms decides where "the line twitched" ends and "it really left the track" begins. 📌
