@@ -4373,11 +4373,11 @@ Same car, same mounting height — the calibration table is the same table, so i
 
 ### Still outstanding
 
-- ⏳ **The working point is not settled.** A propped-up run only yields the turn magnitudes (1/5/10/22/41, all five gears linear and unclamped); "keeps up / weaves or not / brake count" all need a ground run. The direction is now fixed to −1 with `s`, and every turn sign above flips accordingly.
-- ⏳ **The battery box cannot drive the car.** Day 35's propped-up run needed USB power and the ground run limped on leftover power. P control is the most sensitive thing to duty response — with insufficient power the duty-to-speed relation is distorted and `Kp` lands on a false working point. Swap the batteries / check for a stalled motor / measure the actual working voltage first.
-- ⏳ **White-floor drift.** Day 35 drifted even standing still: with the line square on channel 2, `pos` already carried a −169 offset (it would be +143 without the drift — a 312-code swing, twice the 150 deadband). The P term treats that offset as an error and corrects it, i.e. it injects a fixed steering quantity for free. Re-run `c` then `b` before every session.
-- ⏳ **Channel 4 saturation.** Its AO reaches 3951 (black is 921), so `n[4]` passes 1 and keeps climbing, and `W[4]=2` doubles it again. This channel emits a false weight far above 1 and drags the centroid — under P control that is an unquantified fixed disturbance. Measure channel 4's height and blocking first.
+- ⏳ **The working point is not settled.** Day 38's propped-up pass set `Kp` 0.030 / `Kd` 0.010 (the `|turn|` peak compressed from 115 on the "P too large" gear to 33), but "keeps up / weaves or not / brake count" all need a ground run. The direction is now fixed to −1 with `s`, and every turn sign above flips accordingly.
+- ⏳ **The 90° corner is not measured** (outstanding since Day 35). The logs are all straight line. Open loop has no integral term, so in a corner `pos` keeps one sign and the car steers the same way until the line is lost — three failure modes map to three fixes: lost before the corner = duty too high and it overshoots; lost at the apex = the slow gear is too slow; lost after the corner = recovery too slow.
 - 📌 The 500ms lost-line timeout is still derived. P control recovers faster, so the same loss may recover on its own under P; whether this timeout should change with it is a question for the data after the run.
+- ⏳ **Battery box / white-floor drift / channel 4 saturation**: the hardware pitfalls shared by days 35-38. P control is the most sensitive thing to duty response — with insufficient power `Kp` lands on a false working point. Current state and details: Day 38 §6.
+- ⏭️ **The D term**: `d = Kd × (pos − pos_prev) / dt`. Today only P goes in and the weave is suppressed by shrinking `Kp`; Day 37 tackles this, concluding a working range of 0.005~0.020 and a working point of 0.010.
 
 ---
 
@@ -4500,12 +4500,10 @@ The method: car propped up, **white card as the line, black floor as the backgro
 
 ### Still outstanding
 
-- ⏳ **P+D weave decay is not measured.** Propped up, all that can be shown is "D acts only on the rate of change, and the noise is not amplified into the danger zone"; the decay itself needs a ground run. Day 36's ground items (working point, duty-130 re-check) and this are one batch, to be backfilled together.
-- ⏳ **The battery box cannot drive the car.** Outstanding since Day 35. The D term is sensitive to frame interval — with insufficient power the car lurches and power ripple mixes into `Δpos`, so `Kd` lands on a false working point.
-- ⏳ **White-floor drift.** It drifts even standing still (with the line square on channel 2, `pos` already carries a −169 offset). Drift does not feed D itself (it is a slow variable), but it shifts the whole working point. Re-press `c` then `b` before every run.
-- ⏳ **Channel 4 saturation.** Its AO reaches 3951 (black is 921) and `n[4]` keeps rising past 1. This channel not only drags the centroid, it makes `pos` jump — and `pos` jumps are exactly D's input, i.e. it feeds D a false rate of change.
-- ⏳ **Channel 0's DO threshold drifted low.** GPIO1's potentiometer needs realigning, otherwise the first digit of the frame pattern is unreliable.
+- ⏳ **P+D weave decay is not measured.** Propped up it is proven that "D acts only on the rate of change, and the noise is not amplified into the danger zone", and Day 38 compared the `|turn|` peak compressing from 115 on the "P too large" gear to 33; but how much the car's actual weave shrinks needs a ground run.
 - 📌 The 500ms lost-line timeout is still derived.
+- ⏳ **Battery box / white-floor drift / channel 4 saturation**: the hardware pitfalls shared by days 35-38, latest state in Day 38 §6. Channel 4 is especially fatal to D — a `pos` jump is exactly D's input, i.e. it feeds D a false rate of change.
+- ⏭️ **Day 38: tuning comparison.** Three passes — open loop / P too large / P+D tuned. The propped-up version is done (`|turn|` peaks 0 / 115 / 33); the ground version is Day 38 §7.
 
 ---
 
@@ -4579,14 +4577,38 @@ One side note: pass C's first attempt used the wrong key and actually ran `Kp=0.
 
 ### Still outstanding
 
-- ⏳ **The three logs.** The propped-up version only yields the `turn` output; the car's actual weave amplitude and whether it keeps up must come from a ground run.
-- ⏳ **`Kp`'s final gear** and **a quantified weave comparison**. 0.030 is only a starting point.
-- ⏳ **The battery box cannot drive the car.** Outstanding since Day 35. Swap the batteries / check for a stalled motor / measure the actual working voltage first.
-- ⏳ **White-floor drift.** Re-press `c` then `b` before every run.
-- ⏳ **Channel 4 saturation.** AO reaches 3951 (black is 921) and `n[4]` keeps rising past 1, which makes `pos` jump — and `pos` jumps are exactly D's input.
+- ⏳ **A quantified weave-decay comparison.** What the propped-up pass measured is the `turn` output; the car's actual weave amplitude needs a ground run.
+- ⏳ **`Kp`'s final gear.** 0.030 is only a starting point.
+- ⏳ **The battery box cannot drive the car.** Outstanding since Day 35: the propped-up pass needed USB power and the ground run limped on leftover power. Insufficient power pollutes three measurements at once — speed, duty response and the lost-line timeout. Swap the batteries / check for a stalled motor / measure the actual working voltage first.
+- ⏳ **White-floor drift.** It drifts even standing still (with the line square on channel 2, `pos` already carries a −169 offset — a 312-code swing, twice the deadband). The P term treats that offset as an error and corrects it, i.e. it injects a fixed steering quantity for free. Re-press `c` then `b` before every run.
+- ⏳ **Channel 4 saturation.** AO reaches 3951 (black is 921) and `n[4]` keeps rising past 1, with `W[4]=2` doubling it again. This channel not only drags the centroid, it makes `pos` jump — and `pos` jumps are exactly D's input.
 - ⏳ **Channel 0's DO threshold drifted low.** GPIO1's potentiometer needs realigning, otherwise the first digit of the frame pattern is unreliable.
-- ⏭️ To make the input closer to a real weave: compress the push from 2 s to 1 s (matching Day 35's 2-second period) and re-check pass C's `turn` peak.
-- ⏭️ Cut a GIF per pass for the README (ffmpeg parameters from Day 24: `-ss 3 -t 6` + `fps=8,scale=440:-1` + `-loop 0`, and all three must use the same `-ss`).
+
+### ⏭️ Advanced: how to fill in the ground run
+
+The propped-up pass has mapped "the controller's output" clearly. To really run it, four prerequisites and one monitoring method are still missing.
+
+**Prerequisites (missing any one means a wasted run)**:
+
+| Item | What is needed |
+|---|---|
+| Battery | Without a battery that drives the car, nothing else matters. Swap the batteries / check for a stalled motor / measure the actual working voltage |
+| Props | White paper + a black line. Black electrical tape on white paper is cheapest; the line width should approach the five-channel probe spacing, so the line and the white floor are covered at the same time |
+| Distance | **At least 3-5 metres.** Day 35's 2-second period only fits one weave in a metre, which shows no decay trend |
+| Polarity | Black track on a white floor: press `s` once before going on — the `+1` currently in flash is for "white card on a black floor" |
+
+**Monitoring: no wireless remote needed — the USB serial port is the telemetry.** Leave the computer's serial port open during the run, save every frame of the log, and analyse it afterwards:
+
+- Every frame carries `pos / P / D / turn / L / R`. Plot `pos` as a time series and **weave amplitude, weave period, brake count, longest continuous tracking and steady-state error** all fall out — no need to recall "was that last weave bad?".
+- Day 35 already provides a baseline to compare against: 0.49 weaves/second (about a 2-second period), weave amplitude `pos` ±800, steady-state error +400, 29 brake stops, longest continuous tracking 18 seconds.
+- Video is auxiliary only, used to map "which stretch of the log" to "which stretch of the video". The onboard RGB can encode state by colour (tracking / lost / braking), which lets the two line up.
+- To cut the USB cable entirely: **the ESP32-S3 has built-in WiFi** — add a few dozen lines to broadcast the frame log over UDP and receive it on the computer with `nc -ul 115200`. The car roams freely and the log comes back live — that is "record everything during the run and send it back to the computer for analysis". It needs new firmware; do it after Day 39 when there is time.
+
+**Comparisons still to run**:
+
+- Record **pure P** (`0`) and **P+D** (`3`+`7`) on the same straight, and compare how much the `pos` weave amplitude shrinks — the empty table in Day 37 §8 is exactly for filling this in.
+- Sweep `Kp` gear by gear and see which one does not weave (the propped-up 0.030 is only a starting point; on the ground there is load, and the same duty buys less correction).
+- On the propped-up side one more thing can be squeezed: compress the push from 2 s to 1 s (matching Day 35's 2-second period) so the input is closer to a real weave, then re-check pass C's `turn` peak.
 
 ### Next up
 
