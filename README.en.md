@@ -10,7 +10,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
 | [`智能小车/`](./智能小车/) | Smart-car PCB and carrier-board design notes + photos of the built board ([`智能小车-正面.png`](./智能小车/智能小车-正面.png) ｜ [`智能小车-背面.png`](./智能小车/智能小车-背面.png)) |
-| [`day-01/`](./day-01/) … [`day-35/`](./day-35/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-36/`](./day-36/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -167,7 +167,8 @@ robotics-engineer-learning-tutorial/
 ├── day-33/                      ← Day 33: five AO channels fused into one "where is the line" number (weighted centroid pos + locating test sheet + seven-station calibration curve)
 ├── day-34/                      ← Day 34: black/white decision and lost-line handling (five DO pins + measured pot thresholds + FOLLOW/LOST/STOP state machine)
 ├── day-35/                      ← Day 35: open-loop line following (three fixed duty levels + steerSign direction flip + calibration sheet split by array size)
-├── day-36/ … day-60/            📌 to come (Day 36-38 line following / Day 39-45 attitude fusion / Day 46-51 encoder closed loop / Day 52-58 self-balancing / Day 59-60 review)
+├── day-36/                      ← Day 36: P control (`turn = Kp × pos`, forward/steering separation, five Kp presets)
+├── day-37/ … day-60/            📌 to come (Day 37-38 line following / Day 39-45 attitude fusion / Day 46-51 encoder closed loop / Day 52-58 self-balancing / Day 59-60 review)
 └── 智能小车/                    ← smart-car PCB and carrier-board design notes + photos of the built board
 ```
 
@@ -4299,15 +4300,86 @@ The bench proves the direction logic and the DO/AO chain. Wheel speed, battery c
 - **Channel 4 saturates and pins the centroid**: covering it makes its AO swing 235~3951 while its black is only 921 (722-code span). Normalised `n[4]` passes 1 and keeps climbing, so one channel locks the centroid at +925; it never converges in 17 frames and loses the line on its own. No pot can fix this — reading past the black value is a height/blocking problem, and `W[4]=2` doubles it.
 - **White-floor drift is visible even on the bench**: with the line square on channel 2, `pos` is −169 rather than 0 — channel 0 reads 647 and channel 1 reads 591 (calibrated white 229/216, about 2.7×), while channel 3 = 279 and channel 4 = 292 sit on white. Without the drift `pos` would be +143 — a **312-code swing, twice the 150 deadband**. It drifts while standing still, so running only makes it worse.
 
+---
+
+## Day 36 — P control
+
+> Hardware: Day 35's five AO + five DO + TB6612, untouched
+> Core: turn "where is the line" into a continuous steering quantity — `turn = Kp × pos`, the project's first closed loop
+> Firmware: [`day-36/实验1-P控制/实验1-P控制.ino`](./day-36/实验1-P控制/实验1-P控制.ino)
+
+Day 35's three open-loop gears worked, but two flaws stare out of the log: **it weaves near the line** (0.49 flips/s, about a 2 s period, `pos` amplitude ±800) and **a steady-state offset that never goes away** (`pos` parked at +400, the line sitting 15 mm right). Both come from one root: the correction does not scale with the error — a 10-code error and an 800-code error get exactly the same correction. So swap the control law:
+
+```
+turn = Kp × pos × steerSign      (steerSign = −1, array mirrored, see Day 35)
+left wheel = cruise + turn        right wheel = cruise − turn
+```
+
+Small error → gentle correction; large error → strong correction; zero error → no correction. That is all "proportional" means.
+
+### Forward and steering quantities must be separated
+
+This is the easiest place to get it wrong. Day 35's three gears meant "the inner wheel slows, and the whole car's speed baseline drops with it": `L75 R115` averages duty 95, `L115 R115` averages 115 — **the car slows down as soon as there is an error**. That couples steering to speed, and while tuning `Kp` you cannot tell whether "the car responds better" means the steering is accurate or merely "the car is slower so it looks stable".
+
+Today they split apart: the steering quantity `turn = Kp × pos` decides only which way to correct and how hard; the forward quantity `cruise` is constant and does not follow the error. At zero error both wheels are 115, the same average duty as at ±400 — the only difference is the wheel difference. Conversely: a large error must not make the car speed up.
+
+`turn` is clamped to ±cruise duty, so the **inner wheel bottoms out at 0 and never reverses** — this car steers differentially with both wheels driving forward, turning on the speed difference alone (exactly what Day 35's propped-up run showed). A stalled inner wheel means "the outer wheel drives alone", the maximum steering authority; going stronger needs a higher cruise duty or a lower `Kp`. The log prints `← turn 限幅：内轮停转` (turn clamped, inner wheel stalled) — if that line appears constantly on the straight, `Kp` is too large or cruise too small.
+
+### Five Kp gears
+
+`Kp` starts as five preset gears to observe the phenomena, then fine-tunes: serial `1`~`5` jumps straight to a gear, `k`/`j` adjust by 0.001. `pos` is scaled to ±1000 (Day 33: 0 centred, about ±900 at the outermost channel):
+
+| Gear | `Kp` | turn at `pos=±800` | Expected behaviour |
+|---|---|---|---|
+| 1 | 0.005 | ±4 | barely corrects, the car drifts off |
+| 2 | 0.015 | ±12 | slow to correct, cannot keep up in bends |
+| 3 | 0.030 | ±24 | middle gear, usually closest to the working point |
+| 4 | 0.060 | ±48 | corrects eagerly, the straight may start to weave |
+| 5 | 0.120 | ±96 | inner wheel stalls constantly, obvious hunting |
+
+Gear 3 is the default: its wheel duty difference is 48/255 ≈ 19%, the same order as Day 35's `115−75 = 40` — Day 35 already held the line for 18 s, so this magnitude of correction is sufficient; the only problem was that it did not vary with the error.
+
+**How to recognise the working point**: keeps up without weaving. Three checkable signs — on the straight `pos` mostly stays inside the ±150 deadband; no repeated `← turn 限幅`; far fewer brakes than Day 35's 29.
+
+### Propped-up five-gear test: the gear gradient is right, the direction is inverted
+
+(2026-10-22, propped up on USB power, a black prop held statically over channels 1/2/3/4 with channel 0 left white, serial `p` plot mode, log [`day-36/5档测试.txt`](./day-36/5档测试.txt))
+
+`pos` sat at +350~+401 (mean 365) across all five segments, changing gear with `1`~`5` only:
+
+| Gear | `Kp` | `Kp×365` theory | measured turn (mean/max) | right-wheel duty | clamped |
+|---|---|---|---|---|---|
+| 1 | 0.005 | 1.8 | 1 / 1 | 114 | no |
+| 2 | 0.015 | 5.5 | 5 / 5 | 110 | no |
+| 3 | 0.030 | 11 | 10 / 11 | 105 | no |
+| 4 | 0.060 | 22 | 22 / 24 | 93 | no |
+| 5 | 0.120 | 44 | 41 / 46 | 74 / 69 | no |
+
+Measured matches theory gear by gear, all five in the linear region with **no clamping at any gear** — the duty range is sufficient, and "which gear does not weave" can only be settled by weave on the ground, which a propped-up run cannot show. Gear 5's right wheel at 74 (69 at worst) is already below the 6V stall point of 75 measured on Day 21, which is where the visible "right wheel barely turns" comes from — expected behaviour.
+
+**But the direction is inverted.** The whole log has `pos = +365`, i.e. the dark centroid sits on the 3/4 side = the car's **left**, yet the firmware slows the right wheel (`steerSign = +1`) → the car goes right, away from the line. Pressing `s` once sets `steerSign = −1`, and the firmware default has been changed to −1 too. After the fix every `turn` sign in this same log flips: gear 5 becomes left wheel 74, right wheel 115, left arc.
+
+The trailing `[state] 跟线 → 丢线（五路全黑）` is the black prop finally covering all five channels, not a control problem.
+
+Two incidental findings: **this was not a cover on channel 0** — `onCount = 4` throughout (`压线路数×250 = 1000`) with `pos = +365` can only mean channels 1/2/3/4 black and channel 0 white; to simulate "the line runs out to the channel-0 side" (the car's right) the prop must sit on channel 0 over white, which gives `pos ≈ −750` and `n = 1`. And **`Kp ≈ 0.003` on power-up**, not gear 3's 0.030 — the `kp` key restored from NVS does not match the gear number.
+
+### The NVS namespace stays day35
+
+Same car, same mounting height — the calibration table is the same table, so it reads straight from the one Day 35 stored in flash, with no need to re-run `c`/`b`/`t`. But a new environment, new lighting or a moved module drifts the white floor, and then `c`/`b` must be re-run over it. Seeing `[nvs] 已恢复上次的标定 + 方向 + Kp` on power-up means it was found.
+
+### Still outstanding
+
+- ⏳ **The working point is not settled.** A propped-up run only yields the turn magnitudes (1/5/10/22/41, all five gears linear and unclamped); "keeps up / weaves or not / brake count" all need a ground run. The direction is now fixed to −1 with `s`, and every turn sign above flips accordingly.
+- ⏳ **The battery box cannot drive the car.** Day 35's propped-up run needed USB power and the ground run limped on leftover power. P control is the most sensitive thing to duty response — with insufficient power the duty-to-speed relation is distorted and `Kp` lands on a false working point. Swap the batteries / check for a stalled motor / measure the actual working voltage first.
+- ⏳ **White-floor drift.** Day 35 drifted even standing still: with the line square on channel 2, `pos` already carried a −169 offset (it would be +143 without the drift — a 312-code swing, twice the 150 deadband). The P term treats that offset as an error and corrects it, i.e. it injects a fixed steering quantity for free. Re-run `c` then `b` before every session.
+- ⏳ **Channel 4 saturation.** Its AO reaches 3951 (black is 921), so `n[4]` passes 1 and keeps climbing, and `W[4]=2` doubles it again. This channel emits a false weight far above 1 and drags the centroid — under P control that is an unquantified fixed disturbance. Measure channel 4's height and blocking first.
+- 📌 The 500ms lost-line timeout is still derived. P control recovers faster, so the same loss may recover on its own under P; whether this timeout should change with it is a question for the data after the run.
+- ⏭️ **The D term (Day 37)**: `d = Kd × (pos − pos_prev) / dt`, acting only on the rate of change of the error. Today only P goes in and the weave is suppressed by lowering `Kp`; Day 37 uses the D term specifically against weave.
+
 ### Next up
 
-- **Day 36: P control.** Replace the three gears with `turn = Kp × pos`, using today's measured weave period (about 2 s) and amplitude (`pos` ±800) to pick a `Kp` starting point: reaching the same weave amplitude under P control takes far less gain. ⏳
-- **The battery box cannot drive the car**: the propped-up run needed USB power. Insufficient power corrupts speed, duty response and the lost-line timeout at once, and today's "18 s" and "0.49 flips/s" are both affected. Fix it before tuning P: swap the batteries / check for a stalled motor / measure the actual working voltage. ⏳
-- **The 90° bend** is the most critical part of Day 35 and went unmeasured. Open loop has no integral term, so in the bend `pos` keeps one sign and the car steers until it loses the line. Three loss points, three fixes: lose before the bend = cruise duty too high; lose at the apex = slow gear too slow; lose after the bend = recovery too slow. ⏳
-- Pot rotation direction: found this time by "LED lit on white, dark on black" (a `t` verdict of "always reports black" literally means the LED stays dark on white). The direction must be recorded per module — the soldering differs, it is not universal. ⏳
-- The 500ms lost-line timeout is still derived: the car's real speed was never measured, and how far it moves in 100 ms decides where "the line twitched" ends and "it really left the track" begins. 📌
-- `TRIM_RIGHT` is still 0; the +400 rightward bias is uncompensated. Only an encoder closed loop (Day 46 onward) cures two mismatched motors. 📌
-- Channel 4's 722-code span is the weakest of the five; measure its height alone and check whether its LED is half blocked. ⏭️
+- **Day 37: add the D term.** `d = Kd × (pos − pos_prev) / dt`, acting only on the rate of change of the error. D is damping, not correction — with D alone and no P the car cannot follow the line. D is also a noise amplifier: put the AO reading noise and the D-term output in one figure to show why `Kd` cannot be raised blindly. ⏳
+- **Day 38: tuning comparison video.** Record three passes on the same track — open loop / P too large / P+D tuned — at the same speed and battery for comparability, and write down each parameter's symptom and final value. ⏳
 
 ---
 
