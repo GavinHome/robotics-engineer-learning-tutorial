@@ -10,7 +10,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
 | [`智能小车/`](./智能小车/) | Smart-car PCB and carrier-board design notes + photos of the built board ([`智能小车-正面.png`](./智能小车/智能小车-正面.png) ｜ [`智能小车-背面.png`](./智能小车/智能小车-背面.png)) |
-| [`day-01/`](./day-01/) … [`day-36/`](./day-36/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-37/`](./day-37/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -168,7 +168,8 @@ robotics-engineer-learning-tutorial/
 ├── day-34/                      ← Day 34: black/white decision and lost-line handling (five DO pins + measured pot thresholds + FOLLOW/LOST/STOP state machine)
 ├── day-35/                      ← Day 35: open-loop line following (three fixed duty levels + steerSign direction flip + calibration sheet split by array size)
 ├── day-36/                      ← Day 36: P control (`turn = Kp × pos`, forward/steering separation, five Kp presets)
-├── day-37/ … day-60/            📌 to come (Day 37-38 line following / Day 39-45 attitude fusion / Day 46-51 encoder closed loop / Day 52-58 self-balancing / Day 59-60 review)
+├── day-37/                      ← Day 37: adding the D term (`Kd × Δpos/dt`, D-only test, noise-amplification evidence)
+├── day-38/ … day-60/            📌 to come (Day 38 line following / Day 39-45 attitude fusion / Day 46-51 encoder closed loop / Day 52-58 self-balancing / Day 59-60 review)
 └── 智能小车/                    ← smart-car PCB and carrier-board design notes + photos of the built board
 ```
 
@@ -4361,6 +4362,8 @@ Measured matches theory gear by gear, all five in the linear region with **no cl
 
 The trailing `[state] 跟线 → 丢线（五路全黑）` is the black prop finally covering all five channels, not a control problem.
 
+> ⚠️ This `−1` holds only for "black prop on white floor". `pos` is the darkness centroid, so change the polarity of the line and the sign flips — on Day 37, with a "white card on black floor", the same firmware wanted `+1` instead. Do not treat `−1` as a constant; verify it with a prop before every ground run.
+
 Two incidental findings: **this was not a cover on channel 0** — `onCount = 4` throughout (`压线路数×250 = 1000`) with `pos = +365` can only mean channels 1/2/3/4 black and channel 0 white; to simulate "the line runs out to the channel-0 side" (the car's right) the prop must sit on channel 0 over white, which gives `pos ≈ −750` and `n = 1`. And **`Kp ≈ 0.003` on power-up**, not gear 3's 0.030 — the `kp` key restored from NVS does not match the gear number.
 
 ### The NVS namespace stays day35
@@ -4374,11 +4377,135 @@ Same car, same mounting height — the calibration table is the same table, so i
 - ⏳ **White-floor drift.** Day 35 drifted even standing still: with the line square on channel 2, `pos` already carried a −169 offset (it would be +143 without the drift — a 312-code swing, twice the 150 deadband). The P term treats that offset as an error and corrects it, i.e. it injects a fixed steering quantity for free. Re-run `c` then `b` before every session.
 - ⏳ **Channel 4 saturation.** Its AO reaches 3951 (black is 921), so `n[4]` passes 1 and keeps climbing, and `W[4]=2` doubles it again. This channel emits a false weight far above 1 and drags the centroid — under P control that is an unquantified fixed disturbance. Measure channel 4's height and blocking first.
 - 📌 The 500ms lost-line timeout is still derived. P control recovers faster, so the same loss may recover on its own under P; whether this timeout should change with it is a question for the data after the run.
-- ⏭️ **The D term (Day 37)**: `d = Kd × (pos − pos_prev) / dt`, acting only on the rate of change of the error. Today only P goes in and the weave is suppressed by lowering `Kp`; Day 37 uses the D term specifically against weave.
+
+---
+
+## Day 37 — Adding the D term
+
+> Hardware: Day 36's five AO + five DO + TB6612, untouched
+> Core: `turn = Kp × pos + Kd × (pos − pos_prev) / dt`, using the rate of change against weave
+> Firmware: [`day-37/实验2-PD控制/实验2-PD控制.ino`](./day-37/实验2-PD控制/实验2-PD控制.ino)
+
+Day 36's propped-up five-gear test proved the P path itself works: all five gears linear, none clamped. But P has a **structural** flaw — **it looks only at the current error, not at how the error is changing**. As the car charges at the line the error is shrinking fast, yet P still delivers the correction computed from the current error, so the car overshoots; the error then grows the other way, P delivers another large correction, so it swings back. Day 35's 2-second, ±800 weave comes from exactly this.
+
+A steady-state offset (constant error) P can fix — a large enough `Kp` pushes it inside the deadband. Weave (error oscillating) P cannot fix; all you can do is lower `Kp` so it swings less, at the price of slower correction. So today a second term goes in, one that watches the **rate of change**:
+
+```
+turn = Kp × pos + Kd × (pos − pos_prev) / dt
+       ────────   ─────────────────────────
+       correction      damping
+```
+
+### The D term acts only on the rate of change
+
+The second term's whole character in one sentence: **if the error does not move, it is always 0**, no matter how large `Kd` is.
+
+| What `pos` is doing | `Δpos` | D term |
+|---|---|---|
+| Sitting off to one side (prop held still) | 0 | 0 |
+| Approaching 0 (car closing on the line) | negative | a quantity that cancels part of P |
+| Moving away from 0 (car overshot) | positive | a reverse quantity that stacks onto P and holds the trend |
+
+**Work out the units** (the easiest place to get it wrong today): the control period is fixed at 100 ms, so `d = Kd × Δpos / 0.1 = Kd × Δpos × 10`. Against Day 35's measured weave — 2 s period, ±800, the 800 covered in the 500 ms quarter period, so `Δpos ≈ 160` per frame — `Kd = 0.010 → d = 16`, while `Kp = 0.030` at `pos = 800` gives `turn = 24`. → **Kd's working range is 0.005 ~ 0.020**, the same order as P; beyond that you are amplifying noise.
+
+**D also multiplies steerSign**, because what it wants is precisely "oppose the current change": `pos` going from large positive toward 0 (car turning left to reach the line) → `Δpos < 0` → `kd × negative × steerSign = positive` → cancels part of P's large correction so the car does not overshoot; `pos` going from 0 toward large positive (overshoot) → `Δpos > 0` → `kd × positive × steerSign = negative` → stacks onto P to slow the left wheel further and hold back the rightward trend. Both cases slow the change of `turn` — that is damping. Pressing `s` flips P and D together, so "P against D" cannot happen.
+
+**But `steerSign` is not a constant — it is decided by the polarity of the line** (the trap found on the bench today, and worth more than the D term itself). `pos` is the **darkness centroid**, so the relation between "which side the line is on" and the sign of `pos` follows the line's polarity:
+
+| Method | `pos` when the line sits on channels 3/4 (car's left) | `turn` needed | Correct `steerSign` |
+|---|---|---|---|
+| Black prop on white floor (Day 35's method) | positive (darkness on 3/4) | negative (left arc) | **−1** |
+| White card on black floor (Day 37's method) | negative (darkness on 0/1/2) | negative (left arc) | **+1** |
+
+Same firmware, same `s` key — change the polarity of the line and the sign flips. **So do not memorise the sign; verify it with a prop every time**: hold the prop over channels 0/1 → the log should show `R < L`, a right arc; over channels 3/4 → it should show `L < R`, a left arc. Only press `s` when it is inverted; that writes to flash and needs no re-flash.
+
+Three implementation traps: **the deadband gates P only, not D** ("overshooting" happens precisely inside the deadband); **`dt` uses the real frame interval** — beyond 300 ms it is not counted as a rate of change and `posPrev` is realigned first (otherwise a several-hundred-ms `Δpos` makes D blow up for no reason); **`posPrev` realigns while lost**, so the frame the line returns has `Δpos = 0` rather than jumping from the pre-loss value.
+
+### Trying D alone: D without P
+
+Serial `o` zeroes `Kp` temporarily, leaving D only. The conclusion first: **the car cannot follow the line.** D is damping, not correction — it can only slow an already-existing motion; it cannot produce motion toward the line, and once the car drifts off nothing pushes it back.
+
+But this experiment is especially clear on the bench: prop held still → `turn` stays 0 and the car goes straight; push the prop steadily to the other side → every frame of the push has a nonzero `D` column with the sign opposite to the push; stop pushing → `D` returns to 0 immediately and the car goes straight again. "Only present while moving, gone the moment it stops" is D's entire character.
+
+> ⚠️ **For this experiment to show anything, `pos` has to leave the deadband.** Measured on Day 37: the working point sits at `pos ≈ +130`, inside the deadband of 150, so `P` was already 0 and `D` only ±3~9 — "with P" and "D only" look identical in the log. Push the prop to `|pos| > 150` before pressing `o`.
+
+### Five Kd gears
+
+Same as `Kp`: five preset gears to observe the phenomena, then fine-tune. Serial `6`~`9`~`0` jumps straight to a gear, `d`/`f` adjust by 0.001.
+
+| Key | `Kd` | d at `Δpos=160/frame` | Expected behaviour |
+|---|---|---|---|
+| `6` | 0.000 | 0 | D off, back to pure P — reproduce Day 36 first |
+| `7` | 0.005 | 8 | light damping, the weave starts to shrink |
+| `8` | 0.010 | 16 | middle gear, usually closest to the working point |
+| `9` | 0.020 | 32 | strong damping, may go stiff and fail to turn |
+| `0` | 0.040 | 64 | noise amplified, the wheels jitter in place |
+
+**Kd's ceiling is not "does it weave", it is "how large a D does the noise feed in".** This is where it differs most from `Kp`: too much `Kp` is "corrects eagerly", which you can see; too much `Kd` is "amplifies sensor noise into wheel jitter", which looks like a fault rather than a parameter.
+
+So the firmware adds an `n` command: sample 30 frames at the control period, compute directly how large a D output this gear's `Kd` amplifies the noise into, and compare it with the current P output:
+
+```
+  Current Kp = 0.030, pos = +365  →  P output +11
+  Current Kd = 0.010, dt = 0.1 s, max |Δpos| = 12
+                    →  D output +1
+
+  The D fed by noise is 0.12× P
+  → This Kd gear is safe; the noise is not yet amplified enough to move a wheel.
+```
+
+| noise D / P | meaning |
+|---|---|
+| < 0.2 | safe, the noise is not yet amplified enough to move a wheel |
+| 0.2 ~ 0.5 | borderline, the wheels start to tremble, visible on the straight |
+| > 0.5 | noise dominates, the wheels jitter in place. `Kd` too large, press `f` |
+
+> ⚠️ This ratio can only be compared with another measurement taken in the **same environment at the same height**. Change the paper, the lighting or the mounting height and the `pos` swing moves by an order of magnitude, dragging the ratio with it.
+>
+> ⚠️ The `P output` inside the ratio is the P that ignores the deadband. When the working point sits inside the deadband (`|pos| ≤ 150`) the real `P` is 0, so the D/P ratio in the log is optimistic — the true ratio is larger than displayed. To judge "safe" use the absolute value: `D` output in single digits and clearly below the cruise duty is safe.
+
+### New commands and log
+
+| Key | Effect |
+|---|---|
+| **`6` ~ `9` ~ `0`** | **jump to Kd gear N** (0.000 / 0.005 / 0.010 / 0.020 / 0.040) |
+| **`d` / `f`** | **Kd fine-tune ±0.001** |
+| **`o`** | **D only: Kp temporarily zeroed, press again to restore** |
+| **`n`** | **measure AO noise + compute the D output, compare with P** |
+
+`1`~`5` (Kp), `k`/`j`, `+`/`-`, `[`/`]`, `c`/`b`/`w`/`t`, `p`/`q`/`s` are all unchanged from Day 36. The NVS namespace stays `day35` with one extra `kd` key; Day 36's firmware lacks that key, so a missing read falls back to the default Kd = 0 — **power-up behaviour is identical to Day 36**, reproduce pure P first and then add D.
+
+The frame log gains two columns; watch which of `P` and `D` moves: **at rest `P` has a value and `D` is always 0**; only when the prop is pushed does `D` get a value, with the sign opposite to the push.
+
+```
+[1 1 1 1 1] n=5 全黑 | raw  610  596  601  598  603 | pos +365   P  +11 D   +0 turn  +11 L126 R104 右弧线
+                                                          ─┬─  ─┬─ ─┬─ ─┬─  ─┬─
+                                                         error P  D  sum  wheels
+```
+
+### Bench results
+
+The method: car propped up, **white card as the line, black floor as the background** (not a black prop on white) — that single choice decides `steerSign = +1`, see above.
+
+- **Direction verified**: white card over channels 0/1 → `pos` +435~+745, `turn` +20, `R < L` right arc ✓; over 3/4 → `pos` −446, `turn` −13, `L < R` left arc ✓; over 4 → −335 / −5 left arc ✓; over 2 → +136 / 0 straight ✓ (inside the deadband of 150). All four correct.
+- **D acts only on the rate of change**: card held still, pressing `6`→`7`→`8`→`9`→`0` through the five gears, **206 of 216 frames show `D = +0`**; the remaining 10 are ±1~±5 from the instant of hand tremor. All five gears zero — independent of `Kd`. This is the only core experiment completable on the bench today.
+- **D formula checked frame by frame**: at `Kd = 0.040`, pushing the card by hand, 12 consecutive frames all match `D = 0.040 × Δpos × 10 = 0.4 × Δpos` exactly. The frame at `pos = +435` shows `D = 0` because it is the first frame after "lost → line returned", where `posPrev` was realigned.
+- **Noise measurement**: 30 frames in the tracking state, `pos` swing 19 (+121~+140), max frame-to-frame `|Δpos| = 5`. Kd = 0.040 → D = 2, ratio 0.50 (too large); 0.020 → D = 1, 0.25 (borderline); 0.010 → D = 0 (safe). But this state is far quieter than a real line edge (elsewhere with the line edge on a sensor, `|Δpos|` is 16), so 0.020 can only be treated as the ceiling.
+- **Working point (provisional)**: `Kp` 0.030 (gear 3, confirmed by both the `[kp]` echo and the P column), `Kd` 0.010 (gear 8), cruise duty 115, deadband 150.
+- **`o` showed nothing**: throughout the D-only segment `pos` stayed at ≈ +130, inside the deadband, so `P` was already 0 and `D` only ±3~9 — the log is identical to "with P".
+- Hardware suspicion: channel 0's DO black threshold has drifted lower (still judged black at AO 226, where white is calibrated at 229). `pos` uses AO and is unaffected, but the first digit of the frame pattern is unreliable.
+
+### Still outstanding
+
+- ⏳ **P+D weave decay is not measured.** Propped up, all that can be shown is "D acts only on the rate of change, and the noise is not amplified into the danger zone"; the decay itself needs a ground run. Day 36's ground items (working point, duty-130 re-check) and this are one batch, to be backfilled together.
+- ⏳ **The battery box cannot drive the car.** Outstanding since Day 35. The D term is sensitive to frame interval — with insufficient power the car lurches and power ripple mixes into `Δpos`, so `Kd` lands on a false working point.
+- ⏳ **White-floor drift.** It drifts even standing still (with the line square on channel 2, `pos` already carries a −169 offset). Drift does not feed D itself (it is a slow variable), but it shifts the whole working point. Re-press `c` then `b` before every run.
+- ⏳ **Channel 4 saturation.** Its AO reaches 3951 (black is 921) and `n[4]` keeps rising past 1. This channel not only drags the centroid, it makes `pos` jump — and `pos` jumps are exactly D's input, i.e. it feeds D a false rate of change.
+- ⏳ **Channel 0's DO threshold drifted low.** GPIO1's potentiometer needs realigning, otherwise the first digit of the frame pattern is unreliable.
+- 📌 The 500ms lost-line timeout is still derived.
 
 ### Next up
 
-- **Day 37: add the D term.** `d = Kd × (pos − pos_prev) / dt`, acting only on the rate of change of the error. D is damping, not correction — with D alone and no P the car cannot follow the line. D is also a noise amplifier: put the AO reading noise and the D-term output in one figure to show why `Kd` cannot be raised blindly. ⏳
 - **Day 38: tuning comparison video.** Record three passes on the same track — open loop / P too large / P+D tuned — at the same speed and battery for comparability, and write down each parameter's symptom and final value. ⏳
 
 ---
