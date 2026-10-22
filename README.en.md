@@ -10,7 +10,7 @@ A hands-on, month-by-month robotics engineering curriculum. Starting from zero e
 | [`进度/`](./进度/) | Day-by-day practical extension of Month 1 (30 days) + terminology glossary |
 | [`docs/`](./docs/) | ESP32-S3 board source material (schematic + pinout) + component photos ([`元器件.jpg`](./docs/元器件.jpg)) + `小车模块分工表.md` (role of each Day 17–21 module in the finished robot) |
 | [`智能小车/`](./智能小车/) | Smart-car PCB and carrier-board design notes + photos of the built board ([`智能小车-正面.png`](./智能小车/智能小车-正面.png) ｜ [`智能小车-背面.png`](./智能小车/智能小车-背面.png)) |
-| [`day-01/`](./day-01/) … [`day-37/`](./day-37/) | Daily work (screenshots, circuit files, code, notes) |
+| [`day-01/`](./day-01/) … [`day-38/`](./day-38/) | Daily work (screenshots, circuit files, code, notes) |
 
 > 📌 **Code convention (from Day 10)**: later experiments are written as a single `loop()` running in parallel with the onboard pixel (one `RgbCycle::update()` call plus a `millis()` test per task) — no more separate "LED-only" sketches.
 
@@ -169,7 +169,8 @@ robotics-engineer-learning-tutorial/
 ├── day-35/                      ← Day 35: open-loop line following (three fixed duty levels + steerSign direction flip + calibration sheet split by array size)
 ├── day-36/                      ← Day 36: P control (`turn = Kp × pos`, forward/steering separation, five Kp presets)
 ├── day-37/                      ← Day 37: adding the D term (`Kd × Δpos/dt`, D-only test, noise-amplification evidence)
-├── day-38/ … day-60/            📌 to come (Day 38 line following / Day 39-45 attitude fusion / Day 46-51 encoder closed loop / Day 52-58 self-balancing / Day 59-60 review)
+├── day-38/                      ← Day 38: Week 1 project — tuning comparison (propped up, keys only: same card-push, compare the turn output)
+├── day-39/ … day-60/            📌 to come (Day 39-45 attitude fusion / Day 46-51 encoder closed loop / Day 52-58 self-balancing / Day 59-60 review)
 └── 智能小车/                    ← smart-car PCB and carrier-board design notes + photos of the built board
 ```
 
@@ -4433,13 +4434,15 @@ But this experiment is especially clear on the bench: prop held still → `turn`
 
 Same as `Kp`: five preset gears to observe the phenomena, then fine-tune. Serial `6`~`9`~`0` jumps straight to a gear, `d`/`f` adjust by 0.001.
 
+> ⚠️ **Kd's key numbers are offset by one from its gear numbers**: `0` is "off" (0.000), `6` is already 0.005, and `9` is the largest at 0.040. `Kp`'s key numbers do match its gear numbers — only `Kd` is odd.
+
 | Key | `Kd` | d at `Δpos=160/frame` | Expected behaviour |
 |---|---|---|---|
-| `6` | 0.000 | 0 | D off, back to pure P — reproduce Day 36 first |
-| `7` | 0.005 | 8 | light damping, the weave starts to shrink |
-| `8` | 0.010 | 16 | middle gear, usually closest to the working point |
-| `9` | 0.020 | 32 | strong damping, may go stiff and fail to turn |
-| `0` | 0.040 | 64 | noise amplified, the wheels jitter in place |
+| `0` | 0.000 | 0 | D off, back to pure P — reproduce Day 36 first |
+| `6` | 0.005 | 8 | light damping, the weave starts to shrink |
+| `7` | 0.010 | 16 | middle gear, usually closest to the working point |
+| `8` | 0.020 | 32 | strong damping, may go stiff and fail to turn |
+| `9` | 0.040 | 64 | noise amplified, the wheels jitter in place |
 
 **Kd's ceiling is not "does it weave", it is "how large a D does the noise feed in".** This is where it differs most from `Kp`: too much `Kp` is "corrects eagerly", which you can see; too much `Kd` is "amplifies sensor noise into wheel jitter", which looks like a fault rather than a parameter.
 
@@ -4468,7 +4471,7 @@ So the firmware adds an `n` command: sample 30 frames at the control period, com
 
 | Key | Effect |
 |---|---|
-| **`6` ~ `9` ~ `0`** | **jump to Kd gear N** (0.000 / 0.005 / 0.010 / 0.020 / 0.040) |
+| **`6` ~ `9` ~ `0`** | **jump to a Kd gear** (`6`=0.005 / `7`=0.010 / `8`=0.020 / `9`=0.040 / `0`=0.000 — key numbers are offset by one from the gear numbers) |
 | **`d` / `f`** | **Kd fine-tune ±0.001** |
 | **`o`** | **D only: Kp temporarily zeroed, press again to restore** |
 | **`n`** | **measure AO noise + compute the D output, compare with P** |
@@ -4491,7 +4494,7 @@ The method: car propped up, **white card as the line, black floor as the backgro
 - **D acts only on the rate of change**: card held still, pressing `6`→`7`→`8`→`9`→`0` through the five gears, **206 of 216 frames show `D = +0`**; the remaining 10 are ±1~±5 from the instant of hand tremor. All five gears zero — independent of `Kd`. This is the only core experiment completable on the bench today.
 - **D formula checked frame by frame**: at `Kd = 0.040`, pushing the card by hand, 12 consecutive frames all match `D = 0.040 × Δpos × 10 = 0.4 × Δpos` exactly. The frame at `pos = +435` shows `D = 0` because it is the first frame after "lost → line returned", where `posPrev` was realigned.
 - **Noise measurement**: 30 frames in the tracking state, `pos` swing 19 (+121~+140), max frame-to-frame `|Δpos| = 5`. Kd = 0.040 → D = 2, ratio 0.50 (too large); 0.020 → D = 1, 0.25 (borderline); 0.010 → D = 0 (safe). But this state is far quieter than a real line edge (elsewhere with the line edge on a sensor, `|Δpos|` is 16), so 0.020 can only be treated as the ceiling.
-- **Working point (provisional)**: `Kp` 0.030 (gear 3, confirmed by both the `[kp]` echo and the P column), `Kd` 0.010 (gear 8), cruise duty 115, deadband 150.
+- **Working point (provisional)**: `Kp` 0.030 (gear 3, confirmed by both the `[kp]` echo and the P column), `Kd` 0.010 (press `7`), cruise duty 115, deadband 150.
 - **`o` showed nothing**: throughout the D-only segment `pos` stayed at ≈ +130, inside the deadband, so `P` was already 0 and `D` only ±3~9 — the log is identical to "with P".
 - Hardware suspicion: channel 0's DO black threshold has drifted lower (still judged black at AO 226, where white is calibrated at 229). `pos` uses AO and is unaffected, but the first digit of the frame pattern is unreliable.
 
@@ -4504,9 +4507,90 @@ The method: car propped up, **white card as the line, black floor as the backgro
 - ⏳ **Channel 0's DO threshold drifted low.** GPIO1's potentiometer needs realigning, otherwise the first digit of the frame pattern is unreliable.
 - 📌 The 500ms lost-line timeout is still derived.
 
+---
+
+## Day 38 — Week 1 project: tuning comparison
+
+> Hardware: Day 37's untouched (**no new firmware** — all three configurations are combinations of existing keys)
+> Core: feed the same card-push to three parameter combinations and compare the `turn` output
+> Notes: [`day-38/README.md`](./day-38/README.md)
+
+The week-1 project day. The guide asks for three passes recorded on the same track (open loop / P too large / P+D tuned), at the same speed and battery, with each parameter's symptom and final value written down.
+
+A ground run is not possible (the battery box cannot drive the car), so it becomes **propped up + pressing keys + reading the log**: the same firmware, the same three configurations, the same card-push — only "the car runs" is swapped for "hand-push the white card". It measures the same things, and a log is easier to compare than video.
+
+> ⚠️ The cost in one sentence: this measures the **controller's output** (`turn`), not the car's motion. The final decay number still needs a ground run.
+
+### Three configurations and the card-push
+
+**The keys are offset by one from the gear numbers** — the only pitfall of this day:
+
+| Kp | `1` | `2` | `3` | `4` | `5` |
+|---|---|---|---|---|---|
+| value | 0.005 | 0.015 | 0.030 | 0.060 | 0.120 |
+
+| Kd | `0` | `6` | `7` | `8` | `9` |
+|---|---|---|---|---|---|
+| value | 0.000 | 0.005 | 0.010 | 0.020 | 0.040 |
+
+Kd's "off" lives on `0`; `6` is already 0.005, and 0.010 needs `7`. Kp's key number does match its gear number.
+
+| Pass | `Kp` | `Kd` | Keys | What `turn` should look like |
+|---|---|---|---|---|
+| A open loop | 0 | 0 | `0` → `o` | all zero |
+| B P too large | 0.120 | 0.005 | `5` → `6` | jumps hard, one wheel's duty drops very low |
+| C P+D tuned | 0.030 | 0.010 | `3` → `7` | peak clearly smaller than B |
+
+The card-push (**identical in all three** — same input or the `turn` values are not comparable): card on channels 3/4 → push steadily to channels 0/1 (about 2 s) → hold 1 s → push back, three round trips, 10 s of log.
+
+> **`o` writes `Kp = 0` into flash**, but `loadPrefs()` has the guard `if (kpNum == 0) kpNum = kpNumSaved;`, so the next power-up starts with P again. One `o` after pass A restores it.
+
+### Bench results
+
+All three passes were recorded with the correct configurations (the Kd key/gear off-by-one was hit twice, see the table above):
+
+| Pass | Config | `pos` range | `|P|` peak | `|D|` peak | `|turn|` peak | Lowest wheel duty | Clamped frames |
+|---|---|---|---|---|---|---|---|
+| A open loop | `Kp=0, Kd=0` | −656…+358 | 0 | 0 | **0** | 115 | 0 |
+| B P too large | `Kp=0.120, Kd=0.005` | −832…+825 | 99 | 58 | **115** | **0** | **2** |
+| C P+D tuned | `Kp=0.030, Kd=0.010` | −754…+475 | 22 | 26 | **33** | 82 | 0 |
+
+Three findings:
+
+1. **Without a correction term it does not react at all** (A): `pos` swung to −656…+358 (far outside the 150 deadband) while all 345 frames read `P` = `D` = `turn` = 0 and both wheels sat at 115/115. P is the only term that pulls the car back onto the line.
+2. **P too large is just over-correcting** (B): `|P|` peaked at 99, `turn` hit the ±115 clamp, two frames printed `← turn 限幅：内轮停转`, and a wheel's duty fell to 0. That is the root of Day 35's weave.
+3. **P+D tuned holds it in place** (C): at a comparable push amplitude, `|turn|`'s peak dropped from B's **115 to 33** (3.5×), the lowest wheel duty rose from **0 to 82**, and the clamped frames and reversals both went to zero.
+
+> B's push amplitude was slightly larger than C's (`pos` swing 1657 vs 1229), but the `|P|` peaks 99 vs 22 are exactly Kp 0.120/0.030's 4× — the whole B/C gap comes from Kp, not from the push. C's advantage is real.
+
+One side note: pass C's first attempt used the wrong key and actually ran `Kp=0.030, Kd=0.020` — `|D|` peaked at 95, `|turn|` at 107 and a wheel's duty fell to 8, only a little below B's 115, so the damping became a second over-correcting term instead. Day 37 derived the 0.020 borderline from a **quiet-state noise ratio**; Day 38 saw it over-correct under a **genuinely large fast push**. Two independent lines of evidence point at the same gear.
+
+### Final values and the trade-offs
+
+| Parameter | Value | Why this value |
+|---|---|---|
+| `Kp` | **0.030** (gear 3) | Day 36's five gears gave turn = 1/5/10/22/41 with none clamped; gear 3's duty difference is 48/255 ≈ 19%, the same order as Day 35's `115−75 = 40`, which held the line for 18 s |
+| `Kd` | **0.010** (press `7`) | **Kd's ceiling is not "does it weave", it is "how large a D does the noise feed in"**: 0.040 → ratio 0.50 too large, 0.020 → 0.25 borderline, 0.010 → 0 safe. And that "borderline" was measured in a quiet state with four channels deep black and one deep white; on a real line edge the frame-to-frame `\|Δpos\|` rises from 5 to 16 and the D output triples straight past 0.5 |
+| Cruise duty | **115** | the ceiling on the steering quantity is the cruise duty; the only gear that ever produced continuous following on Day 35 |
+| Deadband | **150** | white-floor drift swings 312 codes even standing still — twice the deadband; any smaller and you correct for drift for free |
+| `steerSign` | **+1** (in flash now) | decided by the polarity of the line, not a constant — black prop on white floor wants −1, white card on black floor wants +1. Press `s` once before running a black line on white floor |
+
+⚠️ **0.030 is a starting point, not a conclusion.** It was measured propped up with the wheels in the air; on the ground the same duty buys less correction, so "which gear does not weave" must be settled by a ground run.
+
+### Still outstanding
+
+- ⏳ **The three logs.** The propped-up version only yields the `turn` output; the car's actual weave amplitude and whether it keeps up must come from a ground run.
+- ⏳ **`Kp`'s final gear** and **a quantified weave comparison**. 0.030 is only a starting point.
+- ⏳ **The battery box cannot drive the car.** Outstanding since Day 35. Swap the batteries / check for a stalled motor / measure the actual working voltage first.
+- ⏳ **White-floor drift.** Re-press `c` then `b` before every run.
+- ⏳ **Channel 4 saturation.** AO reaches 3951 (black is 921) and `n[4]` keeps rising past 1, which makes `pos` jump — and `pos` jumps are exactly D's input.
+- ⏳ **Channel 0's DO threshold drifted low.** GPIO1's potentiometer needs realigning, otherwise the first digit of the frame pattern is unreliable.
+- ⏭️ To make the input closer to a real weave: compress the push from 2 s to 1 s (matching Day 35's 2-second period) and re-check pass C's `turn` peak.
+- ⏭️ Cut a GIF per pass for the README (ffmpeg parameters from Day 24: `-ss 3 -t 6` + `fps=8,scale=440:-1` + `-loop 0`, and all three must use the same `-ss`).
+
 ### Next up
 
-- **Day 38: tuning comparison video.** Record three passes on the same track — open loop / P too large / P+D tuned — at the same speed and battery for comparability, and write down each parameter's symptom and final value. ⏳
+- **Day 39: reading an I2C sensor straight from the datasheet.** Week 2 (attitude fusion) begins — MPU-6050 with no library, reading `WHO_AM_I` / `PWR_MGMT_1` / the accelerometer config register directly over `Wire`. ⏳
 
 ---
 
