@@ -170,7 +170,7 @@ robotics-engineer-learning-tutorial/
 ├── day-36/                      ← Day 36: P control (`turn = Kp × pos`, forward/steering separation, five Kp presets)
 ├── day-37/                      ← Day 37: adding the D term (`Kd × Δpos/dt`, D-only test, noise-amplification evidence)
 ├── day-38/                      ← Day 38: Week 1 project — tuning comparison (propped up, keys only: same card-push, compare the turn output)
-├── day-39/ … day-60/            📌 to come (Day 39-45 attitude fusion / Day 46-51 encoder closed loop / Day 52-58 self-balancing / Day 59-60 review)
+├── day-39/ … day-48/            📌 to come (Day 39-40 attitude fusion / Day 41-42 encoder closed loop / Day 43-46 self-balancing / Day 47-48 review)
 └── 智能小车/                    ← smart-car PCB and carrier-board design notes + photos of the built board
 ```
 
@@ -3896,14 +3896,14 @@ Day-by-day guide: [`进度/第2月-30天逐日指南.md`](./进度/第2月-30天
 | Week | Days | Content |
 |---|---|---|
 | 1 | Day 31–38 | interrupts → TCRT5000 datasheet → five-channel position → lost-line handling → ⭐ open-loop line following (the car gets built) → P → D → tuning comparison video |
-| 2 | Day 39–45 | reading an I2C sensor straight from its datasheet → pitch drift → complementary filter → < 1° drift over 60 s at rest → review |
-| 3 | Day 46–51 | encoder pulses → rpm conversion → duty cycle ≠ speed → P speed loop → exactly one revolution → stop after N revolutions |
-| 4 | Day 52–58 | ⭐ self-balancing robot (angle loop → PD → speed loop → remote tuning) |
-| Close | Day 59–60 | monthly review + two running robots on GitHub + month-3 prep |
+| 2 | Day 39–40 | MPU-6050 → a trustworthy angle: bare I2C read + calibration → complementary filter + acceptance of < 1° drift over 60 s at rest |
+| 3 | Day 41–42 | encoder → a trustworthy rpm: meet the encoder + direction-aware speed → open-loop curve + P speed loop (survives a battery swap) |
+| 4 | Day 43–46 | ⭐ self-balancing robot: principle + WiFi telemetry → install + first angle loop → make it stand (a whole day) → remote control + monthly acceptance |
+| Close | Day 47–48 | monthly review + two running robots on GitHub + month-3 prep |
 
-The order follows what is already on the shelf, not a tidy knowledge ladder: week 1 waits only for the five TCRT5000 modules — added to month one's 2WD chassis and TT motors the car can follow a line straight away, **no new motors needed**; week 2 is attitude fusion, the MPU-6050 having been in the kit all along; week 3 finally reaches encoders, which conveniently fills the wait for the N20 motors — better to learn something than idle.
+The order follows what the balance car needs, not a tidy knowledge ladder: weeks 2 and 3 prepare its two ingredients — the MPU-6050 yields the pitch angle (the angle loop's input), the encoder yields the rpm (the speed loop's input); week 4 puts both on the car. Compressing the original 22 days into 10 deletes no content: it cuts the wrapper days ("pure tuning day", "visualisation day", "review day") and merges experiments that belong to one task into the same day (one README per day, 1–2 experiments).
 
-One hard constraint remains: **the encoder block (Day 46–51) must be finished before Day 52**. Day 53 swaps in the encoder motors themselves, and Day 56's speed loop leans directly on Day 46–47 — leave either unfinished and the whole balancing week stalls.
+One hard constraint remains: **the encoder block (Day 41–42) must be finished before Day 44**. Day 44 swaps in the encoder motors themselves, and the speed loop leans directly on Day 41–42 — leave it unfinished and the whole balancing week stalls.
 
 ### Inventory check: nothing wasted, only two things to buy
 
@@ -4612,7 +4612,7 @@ The propped-up pass has mapped "the controller's output" clearly. To really run 
 
 ### Next up
 
-- **Day 39: reading an I2C sensor straight from the datasheet.** Week 2 (attitude fusion) begins — MPU-6050 with no library, reading `WHO_AM_I` / `PWR_MGMT_1` / the accelerometer config register directly over `Wire`. ⏳
+- **Day 39: bare-read the MPU-6050 + calibrate it.** Week 2 begins — no library, reading `WHO_AM_I` / `PWR_MGMT_1` / the accelerometer config register directly over `Wire` and comparing against month 1's library read; then 2000 still samples for the zero bias and a vertical placement to verify ±90°. ⏳
 
 ---
 
