@@ -170,7 +170,7 @@ robotics-engineer-learning-tutorial/
 ├── day-36/                      ← Day 36: P control (`turn = Kp × pos`, forward/steering separation, five Kp presets)
 ├── day-37/                      ← Day 37: adding the D term (`Kd × Δpos/dt`, D-only test, noise-amplification evidence)
 ├── day-38/                      ← Day 38: Week 1 project — tuning comparison (propped up, keys only: same card-push, compare the turn output)
-├── day-39/ … day-48/            📌 to come (Day 39-40 attitude fusion / Day 41-42 encoder closed loop / Day 43-46 self-balancing / Day 47-48 review)
+├── day-39/ … day-48/            📌 to come (Day 39 ✓ bare read + calibration / Day 40-48 attitude fusion, encoder closed loop, self-balancing, review)
 └── 智能小车/                    ← smart-car PCB and carrier-board design notes + photos of the built board
 ```
 
@@ -4612,7 +4612,7 @@ The propped-up pass has mapped "the controller's output" clearly. To really run 
 
 ### Next up
 
-- **Day 39: bare-read the MPU-6050 + calibrate it.** Week 2 begins — no library, reading `WHO_AM_I` / `PWR_MGMT_1` / the accelerometer config register directly over `Wire` and comparing against month 1's library read; then 2000 still samples for the zero bias and a vertical placement to verify ±90°. ⏳
+- **Day 40: complementary filter.** Same raw data: first look at the two failure modes (the accelerometer drifts even at rest, the gyroscope drifts over time), then apply `angle = α×(angle + gyr×dt) + (1−α)×accel_angle`, sweeping α four times in one sitting, and accept < 1° drift over 60 s at rest. ⏳
 
 ---
 
