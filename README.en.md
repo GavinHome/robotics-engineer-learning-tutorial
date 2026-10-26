@@ -4659,8 +4659,8 @@ The first three-step pass (flat / vertical / inverted) came out wrong: resultant
 | Inverted | −0.086 | −0.040 | −1.000 | 1.004 |
 | Vert-A short edge, pin end up | +0.050 | +1.000 | +0.050 | 1.002 |
 | Vert-B short edge, pin end down | +0.070 | −1.000 | −0.036 | 1.003 |
-| Vert-C long edge, front up | +1.000 | −0.124 | −0.023 | 1.008 |
-| Vert-D long edge, front down | −1.000 | +0.008 | −0.041 | 1.001 |
+| Vert-C long edge, pin header down | +1.000 | −0.124 | −0.023 | 1.008 |
+| Vert-D long edge, pin header up | −1.000 | +0.008 | −0.041 | 1.001 |
 
 Derived bias `ax≈+750 ay≈+254 az≈−3488`, scale `ax≈16412 ay≈15626 az≈16553` (all near 16384). Against the three-step 1.097 / 1.028, the six-face method brings all three axes within 1%.
 

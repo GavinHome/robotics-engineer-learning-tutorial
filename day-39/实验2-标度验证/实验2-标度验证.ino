@@ -49,9 +49,9 @@ const char* POSE_NAME[NPOSE] = {
   "平放    芯片丝印朝上, 放桌面",
   "倒放    翻面, 芯片朝下贴桌",
   "竖-A    沿短边立起, 引脚(VCC)那头朝上",
-  "竖-B    竖-A翻过来, 引脚那头朝下",
-  "竖-C    沿长边立起, 前端朝上",
-  "竖-D    竖-C翻过来, 前端朝下"
+  "竖-B    竖-A翻过来, 引脚(VCC)那头朝下",
+  "竖-C    沿长边立起: 有排针(8个引脚)那条长边着桌, 排针那头朝下",
+  "竖-D    竖-C翻过来: 换成没排针那条长边着桌, 排针那头朝上"
 };
 
 // 标定结果
@@ -256,6 +256,13 @@ void printStartHint() {
   Serial.println("实时显示中(用当前标定值)...\n");
 }
 
+void printDone() {
+  Serial.println("\n---------------- 六面标定完成 ----------------");
+  Serial.println("6 个方向全部采完, 结果表见上。");
+  Serial.println("实时显示中(用当前标定值)...");
+  Serial.println("发 'v' 再打印结果表, 发 's' 重新标定。\n");
+}
+
 void setup() {
   Serial.begin(115200);
   delay(300);
@@ -296,7 +303,7 @@ void loop() {
     } else if (c == 's' || c == 'S' || c == 'c' || c == 'C') {
       Serial.println("\n>>> 收到开始指令, 进入六面标定\n");
       runCalibration();
-      printStartHint();
+      printDone();
     }
   }
 
