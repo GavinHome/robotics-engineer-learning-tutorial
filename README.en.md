@@ -170,7 +170,8 @@ robotics-engineer-learning-tutorial/
 ├── day-36/                      ← Day 36: P control (`turn = Kp × pos`, forward/steering separation, five Kp presets)
 ├── day-37/                      ← Day 37: adding the D term (`Kd × Δpos/dt`, D-only test, noise-amplification evidence)
 ├── day-38/                      ← Day 38: Week 1 project — tuning comparison (propped up, keys only: same card-push, compare the turn output)
-├── day-39/ … day-48/            📌 to come (Day 39 ✓ bare read + calibration / Day 40-48 attitude fusion, encoder closed loop, self-balancing, review)
+├── day-39/                      ← Day 39: MPU-6050 bare read + calibration (register-level I2C + zero-bias/scale + six-face auto-calibration)
+├── day-40/ … day-48/            📌 to come (Day 40-48 attitude fusion, encoder closed loop, self-balancing, review)
 └── 智能小车/                    ← smart-car PCB and carrier-board design notes + photos of the built board
 ```
 
@@ -4609,6 +4610,70 @@ The propped-up pass has mapped "the controller's output" clearly. To really run 
 - Record **pure P** (`0`) and **P+D** (`3`+`7`) on the same straight, and compare how much the `pos` weave amplitude shrinks — the empty table in Day 37 §8 is exactly for filling this in.
 - Sweep `Kp` gear by gear and see which one does not weave (the propped-up 0.030 is only a starting point; on the ground there is load, and the same duty buys less correction).
 - On the propped-up side one more thing can be squeezed: compress the push from 2 s to 1 s (matching Day 35's 2-second period) so the input is closer to a real weave, then re-check pass C's `turn` peak.
+
+### Next up
+
+- **Day 39: MPU-6050 bare read + calibration.** Read the I2C registers from the datasheet with no library, then calibrate out the zero-bias and scale — the foundation of the self-balancing car's angle loop. ⏳
+
+---
+
+## Day 39 — MPU-6050 bare read + calibration
+
+> Hardware: MPU-6050 module + ESP32-S3, four dupont wires direct-connected, not mounted on the car
+> Core: read the registers straight from the datasheet with no library, then calibrate out the zero-bias and scale — the foundation of the self-balancing car's angle loop
+> Notes: [`day-39/README.md`](./day-39/README.md)
+
+The self-balancing car's angle loop needs a **drift-free pitch angle**, and its foundation has two layers: **read it right** (bare read + conversion) and **level it out** (zero-bias + scale). Today `atan2` stays out — add layer after layer so a fault is easy to locate.
+
+### Bare read: only three registers from the datasheet
+
+Day 18 read this chip with the `Adafruit_MPU6050` library; today it is read **deliberately with no library** — the library wraps away "read a register", but when the angle loop misbehaves you need to dig in yourself (readings stuck at 0 = `PWR_MGMT_1` never written to 0; `WHO_AM_I` returns 0xFF = wrong address / no common ground / poor contact; wrong magnitude = wrong range). **The milestone "connect and read an I2C sensor from the datasheet without a tutorial" wants exactly this feel.**
+
+Only three registers are looked up, and one burst read of 14 bytes from `0x3B` covers everything (accel 6 + temp 2 + gyro 6):
+
+| Register | Address | Does what | Expected |
+|---|---|---|---|
+| `WHO_AM_I` | 0x75 | self-identifies, checks the address | 0x68 (AD0 to GND) |
+| `PWR_MGMT_1` | 0x6B | leaves sleep | write 0x00 — **skip it and every reading stays 0** |
+| `ACCEL_CONFIG` | 0x1C | accelerometer range | 0x00 = ±2g |
+
+Sensitivity picks **±2g = 16384 LSB/g** (pitch only needs ±1g, so a smaller range gives finer resolution) and **±250°/s = 131 LSB/(°/s)** (a balancing car's angular rate is small). ⚠️ Sensitivity is **full scale ÷ 65536**; dividing by 32768 is only accidentally right at ±2g. `ACCEL_CONFIG` / `GYRO_CONFIG` **must be read back to confirm** — an I2C write returns no success, so reading anything other than 0 means it did not land.
+
+### Zero-bias: az must drop the 1g — the easiest step to get wrong
+
+Press `k`, lay it flat, sample 2000 times and store the mean in flash. The firmware self-checks whether it is clean: at rest `ax/ay` bias < 500 LSB, `az` < 500, gyro < 300 LSB; anything higher prints `⚠️ suspicious calibration`.
+
+⚠️ **Flat, gravity sits entirely on az, so the measured mean = bias + 1g.** If the whole 13152 were subtracted as bias, az after removal ≈ 0 and "flat" would no longer read +1.000 — so the firmware stores `measured mean − 16384`: **only the small bias slice is subtracted; the 1g is a real signal and must stay.**
+
+**What uncalibrated looks like**: `az` reads only 0.804, so the car's "vertical" is judged 36° off and the angle loop pushes one way forever — it looks like a broken car, but it is a steady-state error.
+
+### Scale: three steps cannot cover all axes, six faces finish the job
+
+The first three-step pass (flat / vertical / inverted) came out wrong: resultant gravity 1.097 vertical and 1.028 inverted. **Not hand shake — these three poses cannot hold three axes** — only Z sees up and down once each, the two horizontal axes never point up alone, so their bias and scale cannot be computed at all.
+
+[`实验2-标度验证.ino`](./day-39/实验2-标度验证/实验2-标度验证.ino) switches to the **six-face method**: each of X/Y/Z points up once and down once, giving six poses, with `(max+min)/2` for the bias and `(max−min)/2` for the scale per axis. **Auto-calibration** — no watching live numbers while pressing keys: send `s` to start, then it prompts the 6 directions in turn, each one "text prompt → place it and let go → 3-second settle countdown → 8-second automatic averaging → next step", the coarse check only hints and never blocks, and `v` at the end prints two tables ready to copy.
+
+| Pose | ax | ay | az | Resultant gravity |
+|---|---|---|---|---|
+| Flat | +0.054 | −0.005 | +1.000 | 1.001 |
+| Inverted | −0.086 | −0.040 | −1.000 | 1.004 |
+| Vert-A short edge, pin end up | +0.050 | +1.000 | +0.050 | 1.002 |
+| Vert-B short edge, pin end down | +0.070 | −1.000 | −0.036 | 1.003 |
+| Vert-C long edge, front up | +1.000 | −0.124 | −0.023 | 1.008 |
+| Vert-D long edge, front down | −1.000 | +0.008 | −0.041 | 1.001 |
+
+Derived bias `ax≈+750 ay≈+254 az≈−3488`, scale `ax≈16412 ay≈15626 az≈16553` (all near 16384). Against the three-step 1.097 / 1.028, the six-face method brings all three axes within 1%.
+
+### What went wrong & how I fixed it
+
+- **Resultant gravity 1.097 / 1.028.** First thought a wrong pose or a bad scale, but the inverted reading **exceeds 1.000** — tilting only spreads 1g across axes, so exceeding 1g means extra force, and flat/inverted are not symmetric about 0 (a pure scale error would be symmetric). Conclusion: **assembly stress** — the module sat in a breadboard, so the pins and board became a force path; inverted, the module's own weight pressed the pins → PCB micro-deformation → stress reached the MEMS die and the bias shifted with pose. Switched to four direct dupont wires; this is a common cheap-module effect.
+- **A void run of dirty bias.** Pressing `k` with the board tilted and moving gave `ay` jumping from −72 to −2028 (≈7°) and gyro `gz` from −75 to −173, making every number in the table fake. **Lesson: confirm the bias is clean before validating the scale** — the firmware now shouts `⚠️` itself.
+- **Six faces cannot remove assembly stress either.** It calibrates bias and scale fine, but pose-dependent error from pin force transmission only goes away with direct wiring. A 3.3% scale error is about 0.6° through `atan2`, not worth swapping the chip — write it down and move on.
+
+### Still owed
+
+- ⏳ **Bias drifts with temperature.** The MPU-6050 has no bias temperature-drift spec, so the zero point moves once the car warms up (Day 28 already noted: for a balancing car switch to ICM-42688-P / BMI270). The mitigation is to press `k` once before mounting.
+- ⏭️ Python plot of three lines (raw gyro / raw accel / fused): does not affect the balancing car — look at it only if curious.
 
 ### Next up
 
