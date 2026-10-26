@@ -136,6 +136,15 @@ bool doPose(int idx) {
   Serial.printf("  记录 raw(LSB): ax=%.0f  ay=%.0f  az=%.0f\n",
                 poseRaw[idx][0], poseRaw[idx][1], poseRaw[idx][2]);
 
+  // 六路 raw 全 0 不是"静止", 是 I2C 一帧都没读回来。
+  // 这种数据存进 flash 会把旧值覆盖成空的, 所以直接判本轮作废、不保存。
+  if (fabs(poseRaw[idx][0]) < 500 && fabs(poseRaw[idx][1]) < 500 && fabs(poseRaw[idx][2]) < 500) {
+    Serial.println("\n  ⚠️⚠️ 这个姿态六路 raw 全是 0 —— I2C 没读回来(查杜邦线插没插紧)");
+    Serial.println("  ⚠️ 本轮标定作废, 不会写入 flash(旧值保持原样)。");
+    Serial.println("  ⚠️ 查好线后重新上电, 再发 's' 重标。\n");
+    return false;
+  }
+
   // 只提示, 绝不拦截: 无论如何都记录并继续下一步
   int maxA = 0;
   float maxV = fabs(poseRaw[idx][0]);
@@ -237,7 +246,11 @@ void printSummary() {
 void runCalibration() {
   Serial.println("\n开始六面标定: 按提示摆6个方向, 每个保持不动");
   for (int i = 0; i < NPOSE; i++) {
-    doPose(i);   // 只提示不拦截, 一路走完不卡住
+    if (!doPose(i)) {
+      Serial.println("\n!! 标定中止: 有姿态一帧都没采到, flash 里的旧值保持原样, 没被覆盖。");
+      Serial.println("!! 查好杜邦线, 重新上电, 再发 's' 重标。\n");
+      return;
+    }
   }
   computeCalib();
   printSummary();

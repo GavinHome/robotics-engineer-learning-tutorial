@@ -171,7 +171,8 @@ robotics-engineer-learning-tutorial/
 ├── day-37/                      ← Day 37: adding the D term (`Kd × Δpos/dt`, D-only test, noise-amplification evidence)
 ├── day-38/                      ← Day 38: Week 1 project — tuning comparison (propped up, keys only: same card-push, compare the turn output)
 ├── day-39/                      ← Day 39: MPU-6050 bare read + calibration (register-level I2C + zero-bias/scale + six-face auto-calibration)
-├── day-40/ … day-48/            📌 to come (Day 40-48 attitude fusion, encoder closed loop, self-balancing, review)
+├── day-40/                      ← Day 40: complementary filter (two failure modes demonstrated + four α settings + 60 s at-rest acceptance)
+├── day-41/ … day-48/            📌 to come (Day 41-42 encoders & speed loop, Day 43-46 self-balancing, Day 47-48 review & preview)
 └── 智能小车/                    ← smart-car PCB and carrier-board design notes + photos of the built board
 ```
 
@@ -4673,11 +4674,75 @@ Derived bias `ax≈+750 ay≈+254 az≈−3488`, scale `ax≈16412 ay≈15626 az
 ### Still owed
 
 - ⏳ **Bias drifts with temperature.** The MPU-6050 has no bias temperature-drift spec, so the zero point moves once the car warms up (Day 28 already noted: for a balancing car switch to ICM-42688-P / BMI270). The mitigation is to press `k` once before mounting.
-- ⏭️ Python plot of three lines (raw gyro / raw accel / fused): does not affect the balancing car — look at it only if curious.
+
+---
+
+## Day 40 — Complementary filter: welding two failure modes into one trustworthy angle
+
+> Hardware: Day 39's unchanged — MPU-6050 + ESP32-S3, four dupont wires direct-connected, not mounted on the car
+> Core: the accelerometer jitters, the gyroscope drifts — the complementary filter takes the best of each and lands the "drift-free pitch angle"
+> Notes: [`day-40/README.md`](./day-40/README.md)
+
+Day 39 levelled out the raw data; today three components become **one pitch angle** — the only number the angle loop accepts. Each source carries an incurable disease: the accelerometer is an absolute reference that never drifts, but single-frame noise of ±0.02g ≈ ±1° makes it jitter even at rest; the gyroscope integrates smoothly and responds fast, but its bias (Day 39's measured order of magnitude, 75 LSB ≈ 0.57°/s) integrates into 34° of fake tilt over 60 s. One jitters, one drifts — neither works alone.
+
+### Experiment 1: what the two failure modes look like
+
+See the disease before the cure. [`实验1-两种失效.ino`](./day-40/实验1-两种失效/实验1-两种失效.ino) prints `accel` (jitters around the truth, never runs away) and `gyro integral` (smooth, but climbs one way) side by side, with `diff` steadily growing — **the tangible evidence that fusion is mandatory**. Send `z` to zero the timer and watch for 60 s.
+
+| What to watch | Expected |
+|---|---|
+| accel jitter over 60 s | ±1° around the truth, never running away | mean +2.77°, std 0.32°, never runs away |
+| gyro drift over 60 s | one-way, at the bias rate | one-way −3.76° (−0.063 °/s) |
+| diff trend | grows roughly linearly, direction fixed | 2.4° → 7.4°, direction fixed |
+
+### Complementary filter: high-pass to the gyro, low-pass to the accelerometer
+
+```
+angle = α × (angle + gyr_y × dt) + (1 − α) × accel_angle
+```
+
+The gyro term handles only fast change (high-pass, letting drift run), the accelerometer term only slow change (low-pass, filtering noise) — the two bands are complementary, and **neither can cure the other's disease**. That is where the name comes from. α = how much the gyro is trusted; it also sets the correction time constant `τ = α·dt/(1−α)`: 0.90 → 0.09s (held tight), 0.98 → 0.49s (the balancing car's usual range), 0.995 → 1.99s (drift left to run).
+
+**Steady-state error at rest ≈ gyro drift rate × τ** — Experiment 1 measured this board's residual bias at only 0.063 °/s (the six-face calibration re-measured the gyro bias over 48 s of stillness, an order of magnitude better than Day 39's 75 LSB), so all four settings project below 0.13° and **all of them pass the at-rest test; drift no longer separates them**. What separates the four is the 30° lift catch-up time (≈τ — 0.09s versus 1.99s is a 20× difference in feel) and the hand-held-with-shake pose.
+
+### Experiment 2: sweep all four α in one sitting
+
+[`实验2-互补滤波.ino`](./day-40/实验2-互补滤波/实验2-互补滤波.ino) prints three angles side by side: `accel` (still jitters), `gyro integral` (still drifts), `fused` (**steady and drift-free**). Keys `1`/`2`/`3`/`4` switch α, `z` zeros, `v` prints a status block. Per setting: switch → `z` → **hands off the board**, wait 3 s for it to settle → 60 s at rest → lift about 30° and time the catch-up (≈τ). The 3 s settle exists because pressing `z` right after setting the board down records a baseline captured mid-motion (measured: at the `z` instant the fused angle and the accelerometer differed by 0.78°), which pollutes `maxDev`.
+
+| α | τ | Max deviation over 60 s | 30° lift catch-up | Feel |
+|---|---|---|---|---|
+| 0.90 | 0.09s | 1.59° | | |
+| 0.95 | 0.19s | **0.56° (passes)** | | |
+| 0.98 | 0.49s | 1.83° | | |
+| 0.995 | 1.99s | 2.40° | | |
+
+These max-deviation numbers are not comparable across settings — the contamination comes from the test rig (pressing `z` before the board had settled, and dupont-wire tension slowly dragging the board), not from α. The one genuinely quiet window (α=0.95, where accel drifted only 0.10° in 60 s) gave 0.56° and passed. The conclusion that holds at all four settings independently: `fused` tracks `accel` throughout (within 0.05°) while `gyro integral` drifts on its own — the complementary filter really does cure both diseases.
+
+**Acceptance**: three poses (flat / slightly tilted / hand-held with slight shake), 60 s at rest each, max deviation < 1°. The hand-shaken pose targets "trusting the accelerometer too much" — hand shake is high frequency; if the low-pass cannot suppress it cleanly, α is too small. Not done: a bare board on a desk cannot measure a 1° threshold (ambient vibration and wire tension alone produce 1–2° of false deviation); deferred to Day 44's rigid chassis.
+
+### What to check when it fails
+
+**Step 0: check whether `accel` is stable.** If accel itself moves more than 0.5° during the 60 s, the surroundings are vibrating or the board is not at rest — that is not an α problem, discard the run. The reasoning: accel is the absolute reference; when it moves, `maxDev` measures the board's motion, not the filter's error. To tell "the board moved" from "the data is broken", look at the `gyro integral` column: with real vibration both sensors jitter in step (measured corr = +0.5); with a disturbed I2C bus each breaks independently. Seen in practice: typing vibrated the desk, all four settings showed accel frame-to-frame std 0.66–0.90° (0.32° when quiet) and all four "failed", yet `fused` tracked `accel` — the filter was fine. **Walking away from the desk right after pressing `z` is the single most effective fix.**
+
+1. **Dirty bias** → back to Day 39, press `k` again or re-run the six-face calibration. `fused` gets dragged slowly to a wrong angle — and it is wrong steadily, invisibly.
+2. **`dt` hard-coded** → it must be a measured difference (the firmware uses `micros()`; `millis()`'s 1 ms resolution is a 10% quantisation error on a 10 ms sample).
+3. **Wrong α** → large: drift; small: jitter + sluggish lift response.
+4. **Gyro sign flipped** → unmistakable symptom: when tilted, `fused` moves away from `accel` instead of following it; change `GYR_SIGN` to `-1` and re-flash.
+5. **Scale not loaded / the calibration itself is garbage** → boot prints `⚠️ no scale in flash`, or all three scales are exactly 16384 (the six-face guard's fallback = the board never changed pose during calibration), or a bias in the tens of thousands of LSB; re-run Day 39's six-face calibration.
+6. **I2C dropped mid-run** → moving the board loosened a dupont wire and raw went all-zero: the accel angle freezes on one value while gyro climbs at a constant rate (both numbers are the arithmetic result of `raw=0`, not measurements). The firmware now drops such frames and warns once per second. **A broken data source makes all four α settings a waste — read the boot print before tuning.**
+
+### Still owed
+
+- ⏳ **The α that counts is the one on the car.** Resting on a desk and vibrating on the car are not the same thing: the motor's high-frequency vibration all feeds the accelerometer (the low-pass end), so α may need to go up. Decide it when Day 44's angle loop picks up `fused` and `gyr`.
+
+### ⏭️ Advanced
+
+- **Kalman filter** (moved to advanced by the guide). The same idea, better solved: the weights stop being fixed and adapt to the two sensors' noise covariance — the noisier one is trusted less automatically.
+- **Python plotting** (failure-mode comparison, four-setting comparison). The guide moved visualisation to advanced; today's numbers already decide.
 
 ### Next up
 
-- **Day 40: complementary filter.** Same raw data: first look at the two failure modes (the accelerometer drifts even at rest, the gyroscope drifts over time), then apply `angle = α×(angle + gyr×dt) + (1−α)×accel_angle`, sweeping α four times in one sitting, and accept < 1° drift over 60 s at rest. ⏳
+- **Day 41: encoders → trustworthy rpm.** Read the motor spec (ppr × gear ratio = ticksPerRev, motor side vs wheel side), A/B phases with pull-ups + A-phase interrupt counting, hand-turn one exact revolution and check the count ×3; then B-phase direction + difference sampling for rpm. The speed loop needs a rpm immune to battery voltage. ⏳
 
 ---
 
